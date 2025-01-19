@@ -1,3 +1,22 @@
+"""
+Mini-batch Aggregation Utilities for Graph Neural Networks
+
+Goals:
+- Aggregate observations across mini-batches for efficient GNN processing
+- Handle sparse graph operations for batch processing
+- Compute graph pooling matrices for message passing
+
+Inputs:
+- obs_mb (torch.Tensor): Batch of graph observations
+- n_node (int): Number of nodes in each graph
+- graph_pool_type (str): Type of pooling operation ('average' or 'sum')
+- batch_size (torch.Size): Shape of the batch
+- device (torch.device): Device for tensor operations
+
+Outputs:
+- adj_batch (torch.Tensor): Aggregated sparse adjacency tensor for the batch
+- graph_pool (torch.Tensor): Sparse graph pooling matrix for the batch
+"""
 import torch
 
 
@@ -21,6 +40,15 @@ def aggr_obs(obs_mb, n_node):
 
 
 def g_pool_cal(graph_pool_type, batch_size, n_nodes, device):
+    """
+    Calculate graph pooling matrix
+
+    Args:
+        graph_pool_type: str, 'average' or 'sum'
+        batch_size: torch.Size, shape of batch
+        n_nodes: int, number of nodes in each graph
+        device: torch.device, device    
+    """
     # batch_size is the shape of batch
     # for graph pool sparse matrix
     if graph_pool_type == 'average':

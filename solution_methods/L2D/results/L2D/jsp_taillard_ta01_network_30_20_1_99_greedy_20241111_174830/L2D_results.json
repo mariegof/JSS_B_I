@@ -1,0 +1,7 @@
+{
+    "instance": "/jsp/taillard/ta01",
+    "makespan": 1488.0,
+    "trained_policy": "/saved_models/30_20_1_99.pth",
+    "sample": false,
+    "seed": 2024
+}

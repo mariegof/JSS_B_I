@@ -1,3 +1,24 @@
+"""
+Test Environment for Job Shop Scheduling Problem (JSSP)
+
+Goals:
+- Provide a testing environment for evaluating trained JSSP policies
+- Manage state transitions and reward calculations during testing/evaluation
+- Track job completion and machine utilization metrics
+
+Inputs:
+- n_j (int): Number of jobs in the problem instance
+- n_m (int): Number of machines in the problem instance
+- JSM_env (JobShop): JobShop environment instance containing job and machine definitions
+
+Outputs:
+- adj (np.array): Adjacency matrix representing the current state's disjunctive graph
+- fea (np.array): Feature matrix containing normalized processing times and completion status
+- reward (float): Reward signal based on makespan improvement
+- done (bool): Flag indicating if all operations are scheduled
+- omega (np.array): Array of currently schedulable operations
+- mask (np.array): Boolean mask indicating which jobs are completed
+"""
 import sys
 from pathlib import Path
 

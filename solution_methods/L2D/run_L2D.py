@@ -6,13 +6,14 @@
 # Presented in 34th Conference on Neural Information Processing Systems (NeurIPS), 2020.
 # Paper URL: https://papers.nips.cc/paper_files/paper/2020/file/11958dfee29b6709f48a9ba0387a2431-Paper.pdf
 
-import argparse
-import logging
-import os
-import numpy as np
-import torch
+import argparse # Command line argument parsing (e.g., configuration parameters)
+import logging # Logging functionality for debugging and monitoring
+import os # Operating system interface (file/directory operations)
+import numpy as np # Numerical computations and array manipulation
+import torch # Deep learning framework
 
-from plotting.drawer import draw_gantt_chart
+from plotting.drawer import draw_gantt_chart # Visualization tool for schedules
+# Helper functions for environment setup and parameter management 
 from solution_methods.helper_functions import load_job_shop_env, load_parameters, initialize_device, set_seeds
 from solution_methods.L2D.src.agent_utils import sample_select_action, greedy_select_action
 from solution_methods.L2D.src.env_test import NipsJSPEnv_test as Env_test

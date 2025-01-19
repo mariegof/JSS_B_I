@@ -1,3 +1,25 @@
+"""
+Training Environment for Job Shop Scheduling Problem (JSSP)
+
+Goals:
+- Provide the main training environment for learning JSSP policies
+- Implement core JSSP mechanics including state transitions and reward computation
+- Support flexible job shop configurations and constraints
+- Enable collection of training experiences for reinforcement learning
+
+Inputs:
+- n_j (int): Number of jobs in the problem instance
+- n_m (int): Number of machines in the problem instance
+- data (tuple): Contains duration matrix and machine assignment matrix
+
+Outputs:
+- adj (np.array): Adjacency matrix representing the current state's disjunctive graph
+- fea (np.array): Feature matrix containing normalized processing times and completion status
+- reward (float): Reward signal based on makespan improvement
+- done (bool): Flag indicating if all operations are scheduled
+- omega (np.array): Array of currently schedulable operations
+- mask (np.array): Boolean mask indicating which jobs are completed
+"""
 import sys
 from pathlib import Path
 
