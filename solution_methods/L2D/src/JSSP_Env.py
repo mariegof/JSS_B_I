@@ -45,15 +45,20 @@ test_parameters = parameters["test_parameters"]
 
 
 class SJSSP(gym.Env, EzPickle):
-    def __init__(self,
-                 n_j,
-                 n_m):
+    def __init__(self, n_j, n_m, weights=None):
         EzPickle.__init__(self)
 
         self.step_count = 0
         self.number_of_jobs = n_j
         self.number_of_machines = n_m
         self.number_of_tasks = self.number_of_jobs * self.number_of_machines
+        
+        # Add job weights - if not provided, use equal weights
+        self.weights = weights if weights is not None else np.ones(self.number_of_jobs)
+        
+        # Keep track of job completion times
+        self.job_completion_times = np.zeros(self.number_of_jobs)
+        
         # the task id for first column
         self.first_col = np.arange(start=0, stop=self.number_of_tasks, step=1).reshape(self.number_of_jobs, -1)[:, 0]
         # the task id for last column
@@ -69,6 +74,10 @@ class SJSSP(gym.Env, EzPickle):
     @override
     def step(self, action):
         # action is a int 0 - 224 for 15x15 for example
+        
+        # Current job being processed
+        job_id = action // self.number_of_machines
+        
         # redundant action makes no effect
         if action not in self.partial_sol_sequeence:
 
@@ -88,6 +97,9 @@ class SJSSP(gym.Env, EzPickle):
             if action not in self.last_col:
                 self.omega[action // self.number_of_machines] += 1
             else:
+                job_id = action // self.number_of_machines
+                self.job_completion_times[job_id] = startTime_a + dur_a
+                self.completed_jobs.add(job_id)
                 self.mask[action // self.number_of_machines] = 1
 
             self.temp1[row, col] = startTime_a + dur_a
@@ -108,11 +120,19 @@ class SJSSP(gym.Env, EzPickle):
         # prepare for return
         fea = np.concatenate((self.LBs.reshape(-1, 1)/env_parameters["et_normalize_coef"],
                               self.finished_mark.reshape(-1, 1)), axis=1)
-        reward = - (self.LBs.max() - self.max_endTime)
+        
+        # Calculate new weighted completion time
+        current_weighted_completion = self.calculate_weighted_completion_time()
+        
+        # BEFORE: reward = - (self.LBs.max() - self.max_endTime)
+        # Reward is negative change in weighted completion time
+        reward = -(current_weighted_completion - self.max_endTime)
         if reward == 0:
             reward = env_parameters["rewardscale"]
             self.posRewards += reward
-        self.max_endTime = self.LBs.max()
+        # BEFORE: self.max_endTime = self.LBs.max()
+        # Update max end time for next iteration
+        self.max_endTime = current_weighted_completion
 
         return self.adj, fea, reward, self.done(), self.omega, self.mask
 
@@ -123,6 +143,11 @@ class SJSSP(gym.Env, EzPickle):
         self.m = data[-1]
         self.dur = data[0].astype(np.single)
         self.dur_cp = np.copy(self.dur)
+        
+        # Reset job completion tracking
+        self.job_completion_times = np.zeros(self.number_of_jobs)
+        self.completed_jobs = set()
+        
         # record action history
         self.partial_sol_sequeence = []
         self.flags = []
@@ -162,3 +187,9 @@ class SJSSP(gym.Env, EzPickle):
         self.temp1 = np.zeros_like(self.dur, dtype=np.single)
 
         return self.adj, fea, self.omega, self.mask
+    
+    def calculate_weighted_completion_time(self):
+        """Calculate the weighted sum of completion times for all completed jobs"""
+        return sum(self.weights[i] * self.job_completion_times[i] 
+                  for i in range(self.number_of_jobs) 
+                  if i in self.completed_jobs)

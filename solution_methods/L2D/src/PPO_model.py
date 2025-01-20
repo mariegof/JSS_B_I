@@ -32,6 +32,8 @@ class Memory:
         self.r_mb = []
         self.done_mb = []
         self.logprobs = []
+        self.weights = None  # Added to store job weights
+        self.job_completion_times = []  # Track job completion times
 
     def clear_memory(self):
         del self.adj_mb[:]
@@ -42,6 +44,8 @@ class Memory:
         del self.r_mb[:]
         del self.done_mb[:]
         del self.logprobs[:]
+        del self.job_completion_times[:]
+        self.weights = None
 
 
 class PPO:
@@ -66,6 +70,7 @@ class PPO:
         self.gamma = gamma
         self.eps_clip = eps_clip
         self.k_epochs = k_epochs
+        self.n_jobs = n_j  # Store number of jobs for reward calculation
 
         self.policy = ActorCritic(n_j=n_j,
                                   n_m=n_m,
@@ -106,16 +111,25 @@ class PPO:
 
         # store data for all env
         for i in range(len(memories)):
-            rewards = []
-            discounted_reward = 0
-            for reward, is_terminal in zip(reversed(memories[i].r_mb), reversed(memories[i].done_mb)):
-                if is_terminal:
-                    discounted_reward = 0
-                discounted_reward = reward + (self.gamma * discounted_reward)
-                rewards.insert(0, discounted_reward)
-            rewards = torch.tensor(rewards, dtype=torch.float).to(device)
-            rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
-            rewards_all_env.append(rewards)
+            # Calculate returns considering weighted completion times
+            returns = self.calculate_returns(
+                memories[i].r_mb,
+                memories[i].done_mb,
+                memories[i].weights)
+            
+            rewards_all_env.append(returns)
+
+            # BEFORE: rewards = []
+            #discounted_reward = 0
+            #for reward, is_terminal in zip(reversed(memories[i].r_mb), reversed(memories[i].done_mb)):
+            #    if is_terminal:
+            #        discounted_reward = 0
+            #    discounted_reward = reward + (self.gamma * discounted_reward)
+            #    rewards.insert(0, discounted_reward)
+            #rewards = torch.tensor(rewards, dtype=torch.float).to(device)
+            #rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
+            #rewards_all_env.append(rewards)
+            
             adj_mb_t_all_env.append(aggr_obs(torch.stack(memories[i].adj_mb).to(device), n_tasks))
             fea_mb_t = torch.stack(memories[i].fea_mb).to(device)
             fea_mb_t = fea_mb_t.reshape(-1, fea_mb_t.size(-1))
@@ -139,18 +153,27 @@ class PPO:
                                         candidate=candidate_mb_t_all_env[i],
                                         mask=mask_mb_t_all_env[i],
                                         padded_nei=None)
+                # Evaluate actions and calculate losses
                 logprobs, ent_loss = eval_actions(pis.squeeze(), a_mb_t_all_env[i])
                 ratios = torch.exp(logprobs - old_logprobs_mb_t_all_env[i].detach())
+                # Calculate advantages
                 advantages = rewards_all_env[i] - vals.view(-1).detach()
+                # PPO losses
                 surr1 = ratios * advantages
                 surr2 = torch.clamp(ratios, 1 - self.eps_clip, 1 + self.eps_clip) * advantages
+                # Value loss
                 v_loss = self.V_loss_2(vals.squeeze(), rewards_all_env[i])
+                # Policy loss
                 p_loss = - torch.min(surr1, surr2).mean()
+                # Entropy loss
                 ent_loss = - ent_loss.clone()
+                # Combined loss
                 loss = vloss_coef * v_loss + ploss_coef * p_loss + entloss_coef * ent_loss
 
                 loss_sum += loss
                 vloss_sum += v_loss
+                
+            # Update networks
             self.optimizer.zero_grad()
             #print('loss_sum', loss_sum)
             loss_sum.mean().backward()
@@ -158,6 +181,33 @@ class PPO:
 
         # Copy new weights into old policy:
         self.policy_old.load_state_dict(self.policy.state_dict())
+        # Update learning rate if needed
         if train_parameters["decayflag"]:
             self.scheduler.step()
         return loss_sum.mean().item(), vloss_sum.mean().item()
+
+    def calculate_returns(self, rewards, dones, weights=None):
+        """
+        Calculate returns with weighted completion time consideration
+        
+        Args:
+            rewards: List of rewards from environment
+            dones: List of done flags
+            weights: Optional job weights (defaults to equal weights)
+        """
+        if weights is None:
+            weights = torch.ones(self.n_jobs, device=device)
+        
+        returns = []
+        discounted_reward = 0
+        
+        for reward, is_terminal in zip(reversed(rewards), reversed(dones)):
+            if is_terminal:
+                discounted_reward = 0
+            discounted_reward = reward + (self.gamma * discounted_reward)
+            returns.insert(0, discounted_reward)
+            
+        returns = torch.tensor(returns, dtype=torch.float, device=device)
+        # Normalize returns for stable training
+        returns = (returns - returns.mean()) / (returns.std() + 1e-5)
+        return returns

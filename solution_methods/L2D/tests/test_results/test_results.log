@@ -1,0 +1,10 @@
+2025-01-20 11:07:34,140 - Test results will be saved to /Users/mariegoffin/PFE/Job_Shop_Scheduling_Benchmark_Environments_and_Instances/solution_methods/L2D/tests/test_results
+2025-01-20 11:07:34,329 - Saved completion times plot to /Users/mariegoffin/PFE/Job_Shop_Scheduling_Benchmark_Environments_and_Instances/solution_methods/L2D/tests/test_results/completion_times.png
+2025-01-20 11:07:34,329 - 
+Test Statistics for weighted_jssp_test:
+2025-01-20 11:07:34,329 - Total Weighted Completion Time: 61.50
+2025-01-20 11:07:34,329 - Individual Job Statistics:
+2025-01-20 11:07:34,329 - Job 0: CT=12.00, Weight=1.00, Weighted CT=12.00
+2025-01-20 11:07:34,329 - Job 1: CT=20.00, Weight=2.00, Weighted CT=40.00
+2025-01-20 11:07:34,329 - Job 2: CT=19.00, Weight=0.50, Weighted CT=9.50
+2025-01-20 11:07:34,330 - Saved test statistics to /Users/mariegoffin/PFE/Job_Shop_Scheduling_Benchmark_Environments_and_Instances/solution_methods/L2D/tests/test_results/test_statistics.json
