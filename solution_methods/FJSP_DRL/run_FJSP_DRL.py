@@ -11,15 +11,14 @@ import logging
 import os
 import torch
 
-from plotting.drawer import draw_gantt_chart
+from plotting.drawer import plot_gantt_chart, draw_precedence_relations
 from solution_methods.helper_functions import load_job_shop_env, load_parameters, initialize_device, set_seeds
 from solution_methods.FJSP_DRL.src.env_test import FJSPEnv_test
 from solution_methods.FJSP_DRL.src.PPO import HGNNScheduler
-
-from utils import output_dir_exp_name, results_saving
+from solution_methods.FJSP_DRL.utils import output_dir_exp_name, results_saving
 
 PARAM_FILE = "../../configs/FJSP_DRL.toml"
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
+logging.basicConfig(level=logging.INFO)
 
 
 def run_FJSP_DRL(jobShopEnv, **parameters):
@@ -38,7 +37,7 @@ def run_FJSP_DRL(jobShopEnv, **parameters):
     # Load trained policy
     model_parameters = parameters["model_parameters"]
     test_parameters = parameters["test_parameters"]
-    trained_policy = os.getcwd() + test_parameters['trained_policy']
+    trained_policy = os.path.dirname(os.path.abspath(__file__)) + test_parameters['trained_policy']
     if trained_policy.endswith('.pt'):
         if device.type == 'cuda':
             policy = torch.load(trained_policy)
@@ -50,7 +49,6 @@ def run_FJSP_DRL(jobShopEnv, **parameters):
         model_parameters["critic_in_dim"] = model_parameters["out_size_ma"] + model_parameters["out_size_ope"]
 
         hgnn_model = HGNNScheduler(model_parameters).to(device)
-        print('\nloading saved model:', trained_policy)
         hgnn_model.load_state_dict(policy)
 
     # Get state and completion signal
@@ -58,7 +56,7 @@ def run_FJSP_DRL(jobShopEnv, **parameters):
     done = False
 
     # Generate schedule for instance
-    while ~done:
+    while not done:
         with torch.no_grad():
             actions = hgnn_model.act(state, [], done, flag_train=False, flag_sample=test_parameters['sample'])
         state, _, done = env_test.step(actions)
@@ -66,7 +64,7 @@ def run_FJSP_DRL(jobShopEnv, **parameters):
     makespan = env_test.JSP_instance.makespan
     logging.info(f"Makespan: {makespan}")
 
-    return makespan, jobShopEnv #env_test.JSP_instance
+    return makespan, jobShopEnv
 
 
 def main(param_file=PARAM_FILE):
@@ -85,16 +83,21 @@ def main(param_file=PARAM_FILE):
         save_gantt = output_config.get('save_gantt')
         save_results = output_config.get('save_results')
         show_gantt = output_config.get('show_gantt')
+        show_precedences = output_config.get('show_precedences')
 
         if save_gantt or save_results:
             output_dir, exp_name = output_dir_exp_name(parameters)
             output_dir = os.path.join(output_dir, f"{exp_name}")
             os.makedirs(output_dir, exist_ok=True)
 
+        # Draw precedence relations if required
+        if show_precedences:
+            draw_precedence_relations(jobShopEnv)
+
         # Plot Gantt chart if required
         if show_gantt or save_gantt:
             logging.info("Generating Gantt chart.")
-            plt = draw_gantt_chart(jobShopEnv)
+            plt = plot_gantt_chart(jobShopEnv)
 
             if save_gantt:
                 plt.savefig(output_dir + "/gantt.png")
