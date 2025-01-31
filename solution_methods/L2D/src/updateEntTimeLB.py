@@ -2,6 +2,9 @@ import numpy as np
 
 
 def lastNonZero(arr, axis, invalid_val=-1):
+    """
+    Find the last non-zero element along an axis of a 2D array
+    """
     mask = arr != 0
     val = arr.shape[axis] - np.flip(mask, axis=axis).argmax(axis=axis) - 1
     yAxis = np.where(mask.any(axis=axis), val, invalid_val)
@@ -12,6 +15,9 @@ def lastNonZero(arr, axis, invalid_val=-1):
 
 
 def calEndTimeLB(temp1, dur_cp):
+    """
+    Calculate the lower bound of the end time of each operation
+    """
     x, y = lastNonZero(temp1, 1, invalid_val=-1)
     dur_cp[np.where(temp1 != 0)] = 0
     dur_cp[x, y] = temp1[x, y]

@@ -13,6 +13,16 @@ env_parameters = parameters["env_parameters"]
 
 
 def permissibleLeftShift(a, durMat, mchMat, mchsStartTimes, opIDsOnMchs):
+    """
+    Function to check if a job can be left shifted to an earlier position on the same machine
+    Args: a: int, job index
+            durMat: np.array, duration matrix
+            mchMat: np.array, machine matrix
+            mchsStartTimes: np.array, start times of operations on machines
+            opIDsOnMchs: np.array, operation IDs on machines
+    Returns: startTime_a: int, start time of job a
+             flag: bool, True if job a can be left shifted
+    """
     jobRdyTime_a, mchRdyTime_a = calJobAndMchRdyTimeOfa(a, mchMat, durMat, mchsStartTimes, opIDsOnMchs)
     dur_a = np.take(durMat, a)
     mch_a = np.take(mchMat, a) - 1

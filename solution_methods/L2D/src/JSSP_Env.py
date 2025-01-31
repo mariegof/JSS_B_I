@@ -51,20 +51,17 @@ class SJSSP(gym.Env, EzPickle):
         self.step_count = 0
         self.number_of_jobs = n_j
         self.number_of_machines = n_m
+        self.finished_mark = np.zeros((n_j, n_m))
         self.number_of_tasks = self.number_of_jobs * self.number_of_machines
-        
-        # Add job weights - if not provided, use equal weights
-        self.weights = weights if weights is not None else np.ones(self.number_of_jobs)
-        
-        # Keep track of job completion times
-        self.job_completion_times = np.zeros(self.number_of_jobs)
-        
         # the task id for first column
         self.first_col = np.arange(start=0, stop=self.number_of_tasks, step=1).reshape(self.number_of_jobs, -1)[:, 0]
         # the task id for last column
         self.last_col = np.arange(start=0, stop=self.number_of_tasks, step=1).reshape(self.number_of_jobs, -1)[:, -1]
         self.getEndTimeLB = calEndTimeLB
         self.getNghbs = getActionNbghs
+        self.weights = weights #if weights is not None else np.ones(n_j)  # Default weights = 1
+        self.job_completion_times = np.zeros(self.number_of_jobs, dtype=np.float32)  # Track job completion times for weighted objective
+        self.completed_jobs = set()  # Tracks completed jobs
 
     def done(self):
         if len(self.partial_sol_sequeence) == self.number_of_tasks:
@@ -74,11 +71,13 @@ class SJSSP(gym.Env, EzPickle):
     @override
     def step(self, action):
         # action is a int 0 - 224 for 15x15 for example
+        # Calculate objective before action
+        prev_objective = (self.calculate_weighted_completion_time() if self.weights is not None else self.LBs.max())
         
         # Current job being processed
         job_id = action // self.number_of_machines
         
-        # redundant action makes no effect
+        # Execute action if not already processed, redundant action makes no effect
         if action not in self.partial_sol_sequeence:
 
             # UPDATE BASIC INFO:
@@ -97,8 +96,7 @@ class SJSSP(gym.Env, EzPickle):
             if action not in self.last_col:
                 self.omega[action // self.number_of_machines] += 1
             else:
-                job_id = action // self.number_of_machines
-                self.job_completion_times[job_id] = startTime_a + dur_a
+                self.job_completion_times[job_id] = startTime_a + dur_a  # Track completion time
                 self.completed_jobs.add(job_id)
                 self.mask[action // self.number_of_machines] = 1
 
@@ -117,31 +115,42 @@ class SJSSP(gym.Env, EzPickle):
             if flag and precd != action and succd != action:  # Remove the old arc when a new operation inserts between two operations
                 self.adj[succd, precd] = 0
 
-        # prepare for return
-        fea = np.concatenate((self.LBs.reshape(-1, 1)/env_parameters["et_normalize_coef"],
-                              self.finished_mark.reshape(-1, 1)), axis=1)
+        fea = np.concatenate((
+            self.LBs.reshape(-1, 1)/env_parameters["et_normalize_coef"],  # CLB
+            self.finished_mark.reshape(-1, 1),  # I(O, st)
+        ), axis=1)
+                        
+        if self.weights is not None:
+            # Create weight features with zeros and only set weights for terminal operations
+            weight_features = np.zeros((self.number_of_tasks, 1), dtype=np.float32)  # Shape (n_jobs * n_machines, 1)
+            weight_features[self.last_col] = self.weights.reshape(-1, 1)
+            # Concatenate features
+            fea = np.concatenate((fea, weight_features), axis=1)
         
-        # Calculate new weighted completion time
-        current_weighted_completion = self.calculate_weighted_completion_time()
+        # Calculate new objective and reward
+        current_objective = self.calculate_weighted_completion_time()
         
         # BEFORE: reward = - (self.LBs.max() - self.max_endTime)
-        # Reward is negative change in weighted completion time
-        reward = -(current_weighted_completion - self.max_endTime)
+        # Calculate reward as improvement in objective
+        reward = -(current_objective - prev_objective)
         if reward == 0:
             reward = env_parameters["rewardscale"]
             self.posRewards += reward
         # BEFORE: self.max_endTime = self.LBs.max()
-        # Update max end time for next iteration
-        self.max_endTime = current_weighted_completion
+        self.max_endTime = (self.calculate_weighted_completion_time() if self.weights is not None else self.LBs.max())
 
         return self.adj, fea, reward, self.done(), self.omega, self.mask
 
     @override
     def reset(self, data):
 
-        self.step_count = 0
-        self.m = data[-1]
-        self.dur = data[0].astype(np.single)
+        self.step_count = 0 
+        # BEFORE: self.m = data[-1] # machine assignment matrix
+        self.m = data[1] # machine assignment matrix
+        self.dur = data[0].astype(np.single)  # Duration matrix
+        if len(data) == 3:  # Weighted case
+            # Update weights from data - take the last value of each row
+            self.weights = data[2][:, -1]  # This will give us a 1D array of shape (nb_job,)
         self.dur_cp = np.copy(self.dur)
         
         # Reset job completion tracking
@@ -165,7 +174,11 @@ class SJSSP(gym.Env, EzPickle):
 
         # initialize features
         self.LBs = np.cumsum(self.dur, axis=1, dtype=np.single)
-        self.initQuality = self.LBs.max() if not env_parameters["init_quality_flag"] else 0
+        # BEFORE: self.initQuality = self.LBs.max() if not env_parameters["init_quality_flag"] else 0
+        self.initQuality = (self.calculate_weighted_completion_time() 
+                   if self.weights is not None and not env_parameters["init_quality_flag"]
+                   else self.LBs.max() if not env_parameters["init_quality_flag"]
+                   else 0)
         self.max_endTime = self.initQuality
         self.finished_mark = np.zeros_like(self.m, dtype=np.single)
 
@@ -173,6 +186,13 @@ class SJSSP(gym.Env, EzPickle):
                               # self.dur.reshape(-1, 1)/configs.high,
                               # wkr.reshape(-1, 1)/configs.wkr_normalize_coef,
                               self.finished_mark.reshape(-1, 1)), axis=1)
+        
+        if self.weights is not None:
+            # Create weight features with zeros and only set weights for terminal operations
+            weight_features = np.zeros((self.number_of_tasks, 1), dtype=np.float32)  # Shape (n_jobs * n_machines, 1)
+            weight_features[self.last_col] = self.weights.reshape(-1, 1)
+            # Concatenate features
+            fea = np.concatenate((fea, weight_features), axis=1)
         # initialize feasible omega
         self.omega = self.first_col.astype(np.int64)
 
@@ -189,7 +209,75 @@ class SJSSP(gym.Env, EzPickle):
         return self.adj, fea, self.omega, self.mask
     
     def calculate_weighted_completion_time(self):
-        """Calculate the weighted sum of completion times for all completed jobs"""
-        return sum(self.weights[i] * self.job_completion_times[i] 
-                  for i in range(self.number_of_jobs) 
-                  if i in self.completed_jobs)
+        """
+        Calculate weighted sum of completion times: Σ(w_j * C_j)
+        
+        Uses three-phase approach:
+        1. Calculate raw completion times
+        2. Apply workload-based scaling
+        3. Weight the scaled completion times
+        
+        Returns:
+            float: Weighted sum of completion times if weights present, 
+                otherwise returns makespan
+        """
+        if self.weights is None:
+            return self.LBs.max()  # Return makespan for unweighted case
+        # Phase 1: Calculate raw completion times
+        completion_times = np.zeros(self.number_of_jobs)
+        #total_workload = 0
+        #max_workload_per_job = 0
+        
+        for i in range(self.number_of_jobs):
+            # Calculate total workload for scaling reference
+            #job_workload = np.sum(self.dur[i, :]) # Sum of all operations duration
+            #total_workload += job_workload # Sum of all jobs' workload
+            #max_workload_per_job = max(max_workload_per_job, job_workload)
+            
+            # Calculate completion time for each job
+            if i in self.completed_jobs:
+                completion_times[i] = self.job_completion_times[i]
+            # If job is not completed, estimate completion time
+            else:
+                #job_ops = range(i * self.number_of_machines, (i + 1) * self.number_of_machines)
+                #scheduled_ops = [op for op in job_ops if self.finished_mark[op // self.number_of_machines, op % self.number_of_machines] == 1]
+                last_scheduled_op = max((op for op in range(i * self.number_of_machines, (i + 1) * self.number_of_machines) if self.finished_mark[i, op % self.number_of_machines] == 1), default=None)
+                
+                if last_scheduled_op is not None:
+                    last_completion = self.temp1[i, last_scheduled_op % self.number_of_machines]
+                    remaining_time = sum(self.dur[i, j] for j in range((last_scheduled_op % self.number_of_machines) + 1, self.number_of_machines))
+                    completion_times[i] = last_completion + remaining_time
+                # If no operations are scheduled, estimate completion time as sum of last scheduled operation and remaining operations
+                #if scheduled_ops:
+                #    last_op = max(scheduled_ops)
+                #    last_completion = self.temp1[last_op // self.number_of_machines, last_op % self.number_of_machines]
+                #    remaining_time = sum(self.dur[i, j] for j in range((last_op % self.number_of_machines) + 1, self.number_of_machines))
+                #    completion_times[i] = last_completion + remaining_time
+                # Else, estimate completion time as sum of all operations duration
+                else:
+                    completion_times[i] = sum(self.dur[i, :])
+                    
+        # Phase 2: Scale completion times based on workload
+        #avg_workload = total_workload / self.number_of_jobs
+        #scaling_factor = self.LBs.max() / max(completion_times.max(), 1)  # Use makespan for scaling
+        
+        # Phase 3: Apply weights and scale
+        #if self.weights is None:
+        #    # For unweighted case, return makespan
+        #    return self.LBs.max()
+        
+        # Calculate weighted sum with scaling
+        #weighted_sum = 0
+        #for i in range(self.number_of_jobs):
+        #    # Scale completion time relative to job's workload proportion
+        #    workload_proportion = np.sum(self.dur[i, :]) / avg_workload
+        #    scaled_completion = completion_times[i] * scaling_factor * workload_proportion
+        #    weighted_sum += self.weights[i] * scaled_completion
+            
+        # Normalize weights once
+        normalized_weights = self.weights / np.sum(self.weights)
+        # Use normalized weights throughout calculation
+        weighted_sum = np.sum(normalized_weights * completion_times)
+        
+        return weighted_sum
+

@@ -1,0 +1,45 @@
+{
+  "job_stats": [
+    {
+      "job_id": "J1",
+      "weight": 1.0,
+      "completion_time": 51,
+      "weighted_completion": 51.0
+    },
+    {
+      "job_id": "J2",
+      "weight": 2.0,
+      "completion_time": 41,
+      "weighted_completion": 82.0
+    },
+    {
+      "job_id": "J3",
+      "weight": 3.0,
+      "completion_time": 43,
+      "weighted_completion": 129.0
+    },
+    {
+      "job_id": "J4",
+      "weight": 4.0,
+      "completion_time": 41,
+      "weighted_completion": 164.0
+    },
+    {
+      "job_id": "J5",
+      "weight": 5.0,
+      "completion_time": 27,
+      "weighted_completion": 135.0
+    },
+    {
+      "job_id": "J6",
+      "weight": 6.0,
+      "completion_time": 35,
+      "weighted_completion": 210.0
+    }
+  ],
+  "overall_stats": {
+    "total_weighted_completion_time": 771.0,
+    "makespan": 51,
+    "avg_machine_utilization": 34.967320261437905
+  }
+}

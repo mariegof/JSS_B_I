@@ -11,6 +11,11 @@ import logging # Logging functionality for debugging and monitoring
 import os # Operating system interface (file/directory operations)
 import numpy as np # Numerical computations and array manipulation
 import torch # Deep learning framework
+import sys
+from pathlib import Path
+
+base_path = Path(__file__).resolve().parents[2]
+sys.path.append(str(base_path))
 
 from plotting.drawer import draw_gantt_chart # Visualization tool for schedules
 # Helper functions for environment setup and parameter management 
@@ -21,7 +26,8 @@ from solution_methods.L2D.src.mb_agg import g_pool_cal
 from solution_methods.L2D.src.PPO_model import PPO
 from utils import output_dir_exp_name, results_saving
 
-PARAM_FILE = "../../configs/L2D.toml"
+# BEFORE: PARAM_FILE = "../../configs/L2D.toml"
+PARAM_FILE = str(base_path / "configs" / "L2D.toml")
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
 
@@ -34,9 +40,13 @@ def run_L2D(jobShopEnv, **parameters):
     torch.set_default_device('cuda' if device.type == 'cuda' else 'cpu')
     if device.type == 'cuda':
         torch.cuda.set_device(device)
-
+        
+    weights = np.array(jobShopEnv.weights) if jobShopEnv.is_weighted else None
+    
     # Configure test environment
-    env_test = Env_test(n_j=jobShopEnv.nr_of_jobs, n_m=jobShopEnv.nr_of_machines)
+    env_test = Env_test(n_j=jobShopEnv.nr_of_jobs, 
+                        n_m=jobShopEnv.nr_of_machines,
+                        weights=weights)
 
     # Initialize PPO model with network and training parameters
     model_parameters = parameters["network_parameters"]
@@ -70,7 +80,8 @@ def run_L2D(jobShopEnv, **parameters):
 
     # Run environment instance
     adj, fea, candidate, mask = env_test.reset(jobShopEnv)
-    ep_reward = - env_test.JSM_max_endTime
+    # BEFORE: ep_reward = - env_test.JSM_max_endTime
+    ep_reward = -env_test.calculate_weighted_completion_time() if jobShopEnv.is_weighted else -env_test.JSM_max_endTime
 
     while True:
         fea_tensor = torch.from_numpy(np.copy(fea)).to(device)
@@ -98,11 +109,17 @@ def run_L2D(jobShopEnv, **parameters):
         if done:
             break
 
-    makespan = float(-ep_reward + env_test.posRewards)
-    logging.info(f"Makespan: {makespan}")
+    # BEFORE: makespan = float(-ep_reward + env_test.posRewards)
+    #logging.info(f"Makespan: {makespan}")
+    if jobShopEnv.is_weighted:
+        objective = float(-ep_reward + env_test.posRewards)
+        logging.info(f"Weighted Sum Objective: {objective}")
+    else:
+        objective = float(-ep_reward + env_test.posRewards)
+        logging.info(f"Makespan: {objective}")
 
-    return makespan, jobShopEnv
-
+    # BEFORE: return makespan, jobShopEnv
+    return objective, jobShopEnv
 
 def main(param_file=PARAM_FILE):
     try:
@@ -112,9 +129,11 @@ def main(param_file=PARAM_FILE):
         return
 
     jobShopEnv = load_job_shop_env(parameters['test_parameters'].get('problem_instance'))
-    makespan, jobShopEnv = run_L2D(jobShopEnv, **parameters)
-
-    if makespan is not None:
+    # BEFORE: makespan, jobShopEnv = run_L2D(jobShopEnv, **parameters)
+    objective, jobShopEnv = run_L2D(jobShopEnv, **parameters)
+    
+    # BEFORE: if makespan is not None:
+    if objective is not None:
         # Check output configuration and prepare output paths if needed
         output_config = parameters['test_parameters']
         save_gantt = output_config.get('save_gantt')
@@ -132,7 +151,8 @@ def main(param_file=PARAM_FILE):
             plt = draw_gantt_chart(jobShopEnv)
 
             if save_gantt:
-                plt.savefig(output_dir + "\gantt.png")
+                # BEFORE: plt.savefig(output_dir + "\gantt.png")
+                plt.savefig(os.path.join(output_dir, "gantt.png"))
                 logging.info(f"Gantt chart saved to {output_dir}")
 
             if show_gantt:
@@ -140,7 +160,14 @@ def main(param_file=PARAM_FILE):
 
         # Save results if enabled
         if save_results:
-            results_saving(makespan, output_dir, parameters)
+            # BEFORE: results_saving(makespan, output_dir, parameters)
+            results_saving(
+                objective=objective,
+                path=output_dir,
+                parameters=parameters,
+                makespan=jobShopEnv.makespan,
+                max_flowtime=jobShopEnv.max_flowtime,
+            )
             logging.info(f"Results saved to {output_dir}")
 
 

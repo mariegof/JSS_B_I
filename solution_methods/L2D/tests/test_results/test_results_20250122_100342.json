@@ -1,0 +1,75 @@
+{
+    "makespan_small": {
+        "mean_objective": 61.20000076293945,
+        "std_objective": 4.534313678741455,
+        "min_objective": 54.0,
+        "max_objective": 66.0,
+        "makespan_mean": 61.20000076293945,
+        "makespan_std": 4.534313678741455,
+        "makespan_min": 54.0,
+        "makespan_max": 66.0,
+        "critical_path_ratio": 2.318333387374878
+    },
+    "makespan_medium": {
+        "mean_objective": 135.1999969482422,
+        "std_objective": 4.664761543273926,
+        "min_objective": 130.0,
+        "max_objective": 142.0,
+        "makespan_mean": 135.1999969482422,
+        "makespan_std": 4.664761543273926,
+        "makespan_min": 130.0,
+        "makespan_max": 142.0,
+        "critical_path_ratio": 2.335425853729248
+    },
+    "makespan_large": {
+        "mean_objective": 204.0,
+        "std_objective": 5.403702735900879,
+        "min_objective": 196.0,
+        "max_objective": 213.0,
+        "makespan_mean": 204.0,
+        "makespan_std": 5.403702735900879,
+        "makespan_min": 196.0,
+        "makespan_max": 213.0,
+        "critical_path_ratio": 2.2426114082336426
+    },
+    "weighted_small_uniform": {
+        "mean_objective": 37.53562232057253,
+        "std_objective": 4.427710975045685,
+        "min_objective": 30.254718452692032,
+        "max_objective": 43.42537153760592,
+        "weighted_completion_mean": 37.53562232057253,
+        "weighted_completion_std": 4.427710975045685,
+        "weight_completion_correlation": 0.0,
+        "priority_satisfaction_rate": 1.0
+    },
+    "weighted_small_linear": {
+        "mean_objective": 34.45669969240824,
+        "std_objective": 4.565335386024523,
+        "min_objective": 27.543397498130798,
+        "max_objective": 40.258705004056296,
+        "weighted_completion_mean": 34.45669969240824,
+        "weighted_completion_std": 4.565335386024523,
+        "weight_completion_correlation": -0.2590329645078199,
+        "priority_satisfaction_rate": 0.5333333333333333
+    },
+    "weighted_small_exponential": {
+        "mean_objective": 37.52357539430497,
+        "std_objective": 6.597740622980049,
+        "min_objective": 28.9820317029953,
+        "max_objective": 47.05768430989886,
+        "weighted_completion_mean": 37.52357539430497,
+        "weighted_completion_std": 6.597740622980049,
+        "weight_completion_correlation": -0.1154524779063613,
+        "priority_satisfaction_rate": 0.5333333333333333
+    },
+    "weighted_medium_uniform": {
+        "mean_objective": 86.28023957133294,
+        "std_objective": 4.471442955548987,
+        "min_objective": 80.55906973481179,
+        "max_objective": 91.09683207273483,
+        "weighted_completion_mean": 86.28023957133294,
+        "weighted_completion_std": 4.471442955548987,
+        "weight_completion_correlation": 0.0,
+        "priority_satisfaction_rate": 1.0
+    }
+}

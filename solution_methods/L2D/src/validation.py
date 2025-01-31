@@ -20,18 +20,39 @@ train_parameters = parameters["train_parameters"]
 
 
 def validate(vali_set, model):
+    """
+    Validate model performance on validation set.
+    
+    Args:
+        vali_set: List of validation instances
+        model: Policy model to evaluate
+        weights: Optional job weights, if None uses makespan objective
+    
+    Returns:
+        np.array: Objectives (makespan or weighted completion times) for each instance
+    """
     N_JOBS = vali_set[0][0].shape[0]
     N_MACHINES = vali_set[0][0].shape[1]
-
-    env = SJSSP(n_j=N_JOBS, n_m=N_MACHINES)
+    # Check if we have weighted instances
+    if len(vali_set[0]) == 3:  # If first instance has 3 elements, it's weighted
+        weights = vali_set[0][2][:, -1]  # Extract last column from weights matrix
+    
+    # BEFORE: env = SJSSP(n_j=N_JOBS, n_m=N_MACHINES)
+    # Initialize environment with optional weights
+    env = SJSSP(n_j=N_JOBS, n_m=N_MACHINES, weights=weights)
     device = torch.device(env_parameters["device"])
     g_pool_step = g_pool_cal(graph_pool_type=model_parameters["graph_pool_type"],
                              batch_size=torch.Size([1, env.number_of_tasks, env.number_of_tasks]),
                              n_nodes=env.number_of_tasks,
                              device=device)
-    make_spans = []
+    # BEFORE: make_spans = []
+    # Track objectives for each instance
+    objectives = []
+    print("\nStarting validation loop")
+    
     # rollout using model
-    for data in vali_set:
+    #for data in vali_set:
+    for i, data in enumerate(vali_set):
         adj, fea, candidate, mask = env.reset(data)
         rewards = - env.initQuality
         while True:
@@ -52,9 +73,15 @@ def validate(vali_set, model):
             rewards += reward
             if done:
                 break
-        make_spans.append(rewards - env.posRewards)
+        # BEFORE: make_spans.append(rewards - env.posRewards)
+        final_objective = rewards - env.posRewards
+        objectives.append(final_objective)
         # print(rewards - env.posRewards)
-    return np.array(make_spans)
+    # BEFORE: return np.array(make_spans)
+    result = np.array(objectives)
+    return result
+    #return np.array(objectives)
+
 
 
 

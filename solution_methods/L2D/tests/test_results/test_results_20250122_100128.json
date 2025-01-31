@@ -1,0 +1,75 @@
+{
+    "makespan_small": {
+        "mean_objective": 52.0,
+        "std_objective": 4.516635894775391,
+        "min_objective": 47.0,
+        "max_objective": 58.0,
+        "makespan_mean": 52.0,
+        "makespan_std": 4.516635894775391,
+        "makespan_min": 47.0,
+        "makespan_max": 58.0,
+        "critical_path_ratio": 1.9642267227172852
+    },
+    "makespan_medium": {
+        "mean_objective": 141.0,
+        "std_objective": 3.7416574954986572,
+        "min_objective": 135.0,
+        "max_objective": 146.0,
+        "makespan_mean": 141.0,
+        "makespan_std": 3.7416574954986572,
+        "makespan_min": 135.0,
+        "makespan_max": 146.0,
+        "critical_path_ratio": 2.166302442550659
+    },
+    "makespan_large": {
+        "mean_objective": 205.39999389648438,
+        "std_objective": 12.939861297607422,
+        "min_objective": 183.0,
+        "max_objective": 222.0,
+        "makespan_mean": 205.39999389648438,
+        "makespan_std": 12.939861297607422,
+        "makespan_min": 183.0,
+        "makespan_max": 222.0,
+        "critical_path_ratio": 2.30419921875
+    },
+    "weighted_small_uniform": {
+        "mean_objective": 46.282637067635854,
+        "std_objective": 2.9495428276603093,
+        "min_objective": 44.13110454877218,
+        "max_objective": 51.80688527226448,
+        "weighted_completion_mean": 46.282637067635854,
+        "weighted_completion_std": 2.9495428276603093,
+        "weight_completion_correlation": 0.0,
+        "priority_satisfaction_rate": 1.0
+    },
+    "weighted_small_linear": {
+        "mean_objective": 47.524936698277784,
+        "std_objective": 3.8916150001950567,
+        "min_objective": 44.06959104537964,
+        "max_objective": 54.580062982771125,
+        "weighted_completion_mean": 47.524936698277784,
+        "weighted_completion_std": 3.8916150001950567,
+        "weight_completion_correlation": -0.24262419893489576,
+        "priority_satisfaction_rate": 0.5733333333333333
+    },
+    "weighted_small_exponential": {
+        "mean_objective": 51.964257406999195,
+        "std_objective": 7.86207564150563,
+        "min_objective": 41.61576132168845,
+        "max_objective": 63.01522236494791,
+        "weighted_completion_mean": 51.964257406999195,
+        "weighted_completion_std": 7.86207564150563,
+        "weight_completion_correlation": -0.2092129143292672,
+        "priority_satisfaction_rate": 0.5733333333333333
+    },
+    "weighted_medium_uniform": {
+        "mean_objective": 83.34517550945283,
+        "std_objective": 7.504428792881562,
+        "min_objective": 77.11668353080749,
+        "max_objective": 97.13597888350486,
+        "weighted_completion_mean": 83.34517550945283,
+        "weighted_completion_std": 7.504428792881562,
+        "weight_completion_correlation": 0.0,
+        "priority_satisfaction_rate": 1.0
+    }
+}

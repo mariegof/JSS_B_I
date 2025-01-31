@@ -33,7 +33,6 @@ class Memory:
         self.done_mb = []
         self.logprobs = []
         self.weights = None  # Added to store job weights
-        self.job_completion_times = []  # Track job completion times
 
     def clear_memory(self):
         del self.adj_mb[:]
@@ -44,7 +43,6 @@ class Memory:
         del self.r_mb[:]
         del self.done_mb[:]
         del self.logprobs[:]
-        del self.job_completion_times[:]
         self.weights = None
 
 
@@ -111,11 +109,12 @@ class PPO:
 
         # store data for all env
         for i in range(len(memories)):
-            # Calculate returns considering weighted completion times
+            # Calculate returns handling weighted case
             returns = self.calculate_returns(
-                memories[i].r_mb,
-                memories[i].done_mb,
-                memories[i].weights)
+                rewards=memories[i].r_mb,
+                dones=memories[i].done_mb,
+                weights=memories[i].weights
+            )
             
             rewards_all_env.append(returns)
 
@@ -157,12 +156,20 @@ class PPO:
                 logprobs, ent_loss = eval_actions(pis.squeeze(), a_mb_t_all_env[i])
                 ratios = torch.exp(logprobs - old_logprobs_mb_t_all_env[i].detach())
                 # Calculate advantages
-                advantages = rewards_all_env[i] - vals.view(-1).detach()
+                if rewards_all_env[i].dim() > 1:
+                    # Weighted instance case
+                    weighted_rewards = rewards_all_env[i].sum(dim=1)  # Sum across jobs
+                else:
+                    # Unweighted instance case
+                    weighted_rewards = rewards_all_env[i]
+                # BEFORE: advantages = rewards_all_env[i] - vals.view(-1).detach()
+                advantages = weighted_rewards - vals.view(-1).detach()
                 # PPO losses
                 surr1 = ratios * advantages
                 surr2 = torch.clamp(ratios, 1 - self.eps_clip, 1 + self.eps_clip) * advantages
                 # Value loss
-                v_loss = self.V_loss_2(vals.squeeze(), rewards_all_env[i])
+                # BEFORE: v_loss = self.V_loss_2(vals.squeeze(), rewards_all_env[i])
+                v_loss = self.V_loss_2(vals.squeeze(), weighted_rewards)
                 # Policy loss
                 p_loss = - torch.min(surr1, surr2).mean()
                 # Entropy loss
@@ -188,26 +195,47 @@ class PPO:
 
     def calculate_returns(self, rewards, dones, weights=None):
         """
-        Calculate returns with weighted completion time consideration
+        Calculate returns considering weighted completion times if weights provided
         
         Args:
-            rewards: List of rewards from environment
+            rewards: List of rewards from environment (changes in weighted completion time)
             dones: List of done flags
-            weights: Optional job weights (defaults to equal weights)
+            weights: Optional tensor of job weights (n_jobs,)
+            
+        Returns:
+            torch.tensor: Calculated returns, properly scaled and normalized
         """
-        if weights is None:
-            weights = torch.ones(self.n_jobs, device=device)
-        
         returns = []
         discounted_reward = 0
         
-        for reward, is_terminal in zip(reversed(rewards), reversed(dones)):
-            if is_terminal:
-                discounted_reward = 0
-            discounted_reward = reward + (self.gamma * discounted_reward)
-            returns.insert(0, discounted_reward)
+        if weights is None:
+            # Standard makespan case - original logic
+            for reward, is_terminal in zip(reversed(rewards), reversed(dones)):
+                if is_terminal:
+                    discounted_reward = 0
+                discounted_reward = reward + (self.gamma * discounted_reward)
+                returns.insert(0, discounted_reward)
+        
+        else:
+            # Weighted completion time case - scale rewards by job weights
+            normalized_weights = weights / weights.sum() # Normalize weights to prevent scaling issues
             
-        returns = torch.tensor(returns, dtype=torch.float, device=device)
-        # Normalize returns for stable training
-        returns = (returns - returns.mean()) / (returns.std() + 1e-5)
+            for i, (reward, is_terminal) in enumerate(zip(reversed(rewards), reversed(dones))):
+                if is_terminal:
+                    discounted_reward = 0
+                
+                # Scale reward by normalized weight of affected job
+                job_idx = (len(rewards) - 1 - i) % self.n_jobs # Index of job associated with reward
+                scaled_reward = reward * normalized_weights[job_idx]
+                
+                discounted_reward = scaled_reward + (self.gamma * discounted_reward)
+                returns.insert(0, discounted_reward)
+        
+        # Ensure returns is a list before converting to tensor
+        if not isinstance(returns, list):
+            returns = list(returns)
+            
+        returns = torch.tensor(returns, dtype=torch.float).to(device) # Convert to tensor
+        returns = (returns - returns.mean()) / (returns.std() + 1e-5) # Normalize returns
+        
         return returns

@@ -39,7 +39,7 @@ test_parameters = parameters["test_parameters"]
 
 
 class NipsJSPEnv_test():
-    def __init__(self, n_j: int, n_m: int):
+    def __init__(self, n_j: int, n_m: int, weights: np.ndarray = None):
 
         self.step_count = 0
         self.number_of_jobs = n_j
@@ -50,12 +50,23 @@ class NipsJSPEnv_test():
         # the task id for last column
         self.last_col = np.arange(start=0, stop=self.number_of_tasks, step=1).reshape(self.number_of_jobs, -1)[:, -1]
         self.JobShopModule: JobShop = None
+        # Track if we're using weights and completion times
+        self.job_completion_times = np.zeros(self.number_of_jobs)
+        self.completed_jobs = set()
+        self.weights = weights
+        # If weights are provided, ensure they're the correct shape
+        if self.weights is not None:
+            assert self.weights.shape == (n_j,), "Weights array must have shape (n_j,)"
 
     def reset(self, JSM_env: JobShop):
         self.JobShopModule = JSM_env
         self.JobShopModule.reset()
 
         self.step_count = 0
+        
+        # Reset job completion tracking
+        self.job_completion_times = np.zeros(self.number_of_jobs)
+        self.completed_jobs = set()
 
         # record action history
         self.partial_sol_sequeence = []
@@ -83,8 +94,17 @@ class NipsJSPEnv_test():
         self.JSM_max_endTime = self.JSM_LBs.max() if not env_parameters["init_quality_flag"] else 0
         self.JSM_finished_mark = np.zeros_like(self.JSM_LBs, dtype=np.single)
         self.initQuality = self.JSM_LBs.max() if not env_parameters["init_quality_flag"] else 0
-        fea = np.concatenate((self.JSM_LBs.reshape(-1, 1) / env_parameters["et_normalize_coef"],
-                              self.JSM_finished_mark.reshape(-1, 1)), axis=1)
+        fea = np.concatenate((self.JSM_LBs.reshape(-1, 1) / env_parameters["et_normalize_coef"], self.JSM_finished_mark.reshape(-1, 1)), axis=1)
+        
+        if self.JobShopModule.is_weighted:
+            # Initialize weight features with zeros
+            weight_features = np.zeros((self.number_of_tasks, 1), dtype=np.float32)
+            # Assign weights only to terminal operations
+            for op in self.JobShopModule.get_last_operations():
+                weight_features[op.operation_id] = op.job.weight
+            # Add weight features as a new column in the feature matrix
+            fea = np.concatenate((fea, weight_features), axis=1)
+            
         # initialize feasible omega
         self.JSM_omega = self.first_col.astype(np.int64)
         # initialize mask
@@ -100,7 +120,11 @@ class NipsJSPEnv_test():
     def step(self, action):
         # action is a int 0 - 224 for 15x15 for example
         # redundant action makes no effect
-
+        # Calculate objective before action
+        prev_objective = (self.calculate_weighted_completion_time() 
+                     if self.JobShopModule.is_weighted 
+                     else self.JSM_LBs.max())
+        
         ope_to_schedule = self.JobShopModule.get_operation(action)
 
         if len(ope_to_schedule.scheduling_information) == 0:
@@ -132,6 +156,8 @@ class NipsJSPEnv_test():
             if action not in self.last_col:
                 self.JSM_omega[job_id] += 1
             else:
+                self.job_completion_times[job_id] = ope_to_schedule.scheduling_information.get('end_time')
+                self.completed_jobs.add(job_id)
                 self.JSM_mask[job_id] = 1
 
             self.JSM_LBs[job_id, ope_idx_in_job] = ope_to_schedule.scheduling_information.get('end_time')
@@ -141,14 +167,78 @@ class NipsJSPEnv_test():
                 self.JSM_LBs[job_id, i] = self.JSM_LBs[job_id, i-1] + pure_process_time
 
         # prepare for return
-        feature_JSM = np.concatenate((self.JSM_LBs.reshape(-1, 1) / env_parameters["et_normalize_coef"],
-                              self.JSM_finished_mark.reshape(-1, 1)), axis=1)
-        reward_JSM = - (self.JSM_LBs.max() - self.JSM_max_endTime)
+        feature_JSM = np.concatenate((
+            self.JSM_LBs.reshape(-1, 1) / env_parameters["et_normalize_coef"], # CLB
+            self.JSM_finished_mark.reshape(-1, 1) # I(O, st)
+            ), axis=1)
+        
+        if self.JobShopModule.is_weighted:
+            weight_features = np.zeros((self.number_of_tasks, 1), dtype=np.float32)
+            last_ops = self.JobShopModule.get_last_operations()
+            for op in last_ops:
+                weight_features[op.operation_id] = op.job.weight
+                
+            feature_JSM = np.concatenate((feature_JSM, weight_features), axis=1) # wi when weights exist
+        
+        # Calculate new objective and reward
+        current_objective = self.calculate_weighted_completion_time()
+        # BEFORE: reward_JSM = - (self.JSM_LBs.max() - self.JSM_max_endTime)
+        reward_JSM = -(current_objective - prev_objective)
 
         if reward_JSM == 0:
             reward_JSM = env_parameters["rewardscale"]
             self.posRewards += reward_JSM
 
-        self.JSM_max_endTime = self.JSM_LBs.max()
+        # BEFORE: self.JSM_max_endTime = self.JSM_LBs.max()
+        # Update max end time based on objective
+        self.JSM_max_endTime = current_objective
 
         return self.JSM_adj, feature_JSM, reward_JSM, self.done(), self.JSM_omega, self.JSM_mask
+    
+    def calculate_weighted_completion_time(self):
+        """
+        Calculate weighted sum of completion times: Σ(w_j * C_j)
+        
+        For the testing environment, we can leverage the JobShop environment
+        to get precise completion times for scheduled operations and make
+        informed estimates for unscheduled operations.
+        
+        Returns:
+            float: Weighted sum of completion times if the instance is weighted, otherwise returns makespan
+        """
+        # Check if this is a weighted instance by looking at job weights
+        if not self.JobShopModule.is_weighted:
+            return self.JSM_LBs.max()
+        
+        total_weight = 0  # Initialize total weight
+        weighted_sum = 0  # Initialize weighted sum
+            
+        for job_id, job in enumerate(self.JobShopModule.jobs):
+            scheduled_ops = job.scheduled_operations
+            
+            if len(scheduled_ops) == len(job.operations):
+                # All operations scheduled: use actual completion time
+                completion_time = max(op.scheduled_end_time for op in scheduled_ops)
+            elif scheduled_ops:
+                # Partially scheduled: use last scheduled operation plus estimates
+                last_scheduled = max(scheduled_ops, key=lambda op: op.scheduled_end_time)
+                last_scheduled_idx = job.operations.index(last_scheduled)
+                
+                # Start from last known completion time
+                completion_time = last_scheduled.scheduled_end_time
+                
+                # Estimate remaining operations
+                for operation in job.operations[last_scheduled_idx + 1:]:
+                    # Use minimum processing time among available machines
+                    completion_time += min(operation.processing_times.values())
+                            
+            else:
+                # If no operations scheduled, use lower bound from JSM_LBs
+                completion_time = self.JSM_LBs[job_id, -1]
+                
+            # Update weighted sum and total weight
+            total_weight += job.weight
+            weighted_sum += job.weight * completion_time
+        
+        # Normalize at the end (equivalent to normalizing per job)
+        return weighted_sum / total_weight if total_weight > 0 else 0

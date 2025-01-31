@@ -1,0 +1,45 @@
+{
+    "makespan_small": {
+        "mean_objective": 55.20000076293945,
+        "std_objective": 8.423775672912598,
+        "min_objective": 43.0,
+        "max_objective": 66.0,
+        "makespan_mean": 55.20000076293945,
+        "makespan_std": 8.423775672912598,
+        "makespan_min": 43.0,
+        "makespan_max": 66.0,
+        "critical_path_ratio": 2.136650323867798
+    },
+    "makespan_medium": {
+        "mean_objective": 130.39999389648438,
+        "std_objective": 5.748043060302734,
+        "min_objective": 124.0,
+        "max_objective": 140.0,
+        "makespan_mean": 130.39999389648438,
+        "makespan_std": 5.748043060302734,
+        "makespan_min": 124.0,
+        "makespan_max": 140.0,
+        "critical_path_ratio": 2.2312819957733154
+    },
+    "makespan_large": {
+        "mean_objective": 196.8000030517578,
+        "std_objective": 3.54400897026062,
+        "min_objective": 193.0,
+        "max_objective": 202.0,
+        "makespan_mean": 196.8000030517578,
+        "makespan_std": 3.54400897026062,
+        "makespan_min": 193.0,
+        "makespan_max": 202.0,
+        "critical_path_ratio": 2.1359333992004395
+    },
+    "weighted_small_uniform": {
+        "mean_objective": 42.96666666666666,
+        "std_objective": 2.8055500550001073,
+        "min_objective": 38.0,
+        "max_objective": 45.666666666666664,
+        "weighted_completion_mean": 42.96666666666666,
+        "weighted_completion_std": 2.8055500550001073,
+        "weight_completion_correlation": 0.0,
+        "priority_satisfaction_rate": 1.0
+    }
+}

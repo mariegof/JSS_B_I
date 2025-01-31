@@ -84,11 +84,17 @@ class GraphCNN(nn.Module):
         return F.relu(h)
 
     def forward(self, x, graph_pool, padded_nei, adj):
-
+        """
+        Forward pass that handles both weighted and unweighted cases.
+        
+        Args:
+            x: Node features tensor, shape (N, 2) or (N, 3) depending on weights
+        """
         h = x
         padded_neighbor_list = padded_nei if self.neighbor_pooling_type == "max" else None
         adj_block = adj if self.neighbor_pooling_type != "max" else None
-
+        
+        # Process through GNN layers
         for layer in range(self.num_layers-1):
             if self.neighbor_pooling_type == "max" and self.learn_eps:
                 h = self.next_layer_eps(h, layer, padded_neighbor_list=padded_neighbor_list)

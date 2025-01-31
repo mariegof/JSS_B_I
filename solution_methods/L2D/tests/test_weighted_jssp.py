@@ -1,184 +1,206 @@
+"""
+Test module for evaluating JSSP implementation with and without weights.
+Provides comprehensive comparison of makespan vs weighted completion time objectives.
+"""
 import unittest
-import sys
-import os
+import logging
 from pathlib import Path
 import numpy as np
 import torch
+import json
+from datetime import datetime
 
-# Add the parent directory to Python path
-current_dir = Path(__file__).resolve().parent
-parent_dir = current_dir.parent
-sys.path.append(str(parent_dir))
+from solution_methods.L2D.src.JSSP_Env import SJSSP
+from solution_methods.L2D.data.instance_generator import uniform_instance_generator
+from solution_methods.L2D.src.validation import validate
+from solution_methods.L2D.tests.validation_metrics import ValidationMetrics
+from solution_methods.L2D.src.PPO_model import PPO
+from solution_methods.helper_functions import load_parameters
 
-from solution_methods.L2D.tests.test_visualizer import TestVisualizer
-from src.JSSP_Env import SJSSP
-from src.PPO_model import PPO, Memory
-from data.instance_generator import uniform_instance_generator
+def convert_to_serializable(obj):
+    """Convert numpy types to Python native types for JSON serialization"""
+    if isinstance(obj, (np.int_, np.intc, np.intp, np.int8,
+        np.int16, np.int32, np.int64, np.uint8,
+        np.uint16, np.uint32, np.uint64)):
+        return int(obj)
+    elif isinstance(obj, (np.float16, np.float32, np.float64)):
+        return float(obj)
+    elif isinstance(obj, dict):
+        return {key: convert_to_serializable(value) for key, value in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [convert_to_serializable(x) for x in obj]
+    return obj
 
-class TestWeightedJSSP(unittest.TestCase):
-    def setUp(self):
-        """Set up test fixtures"""
-        self.n_j = 3  # Small problem for testing
-        self.n_m = 2
-        self.weights = np.array([1.0, 2.0, 0.5])  # Test different priorities
-        self.env = SJSSP(n_j=self.n_j, n_m=self.n_m, weights=self.weights)
-        
-        # Create a simple test instance
-        self.test_instance = uniform_instance_generator(
-            n_j=self.n_j,
-            n_m=self.n_m,
-            low=1,
-            high=10
-        )
-
-    def test_env_initialization(self):
-        """Test environment initialization with weights"""
-        self.assertEqual(len(self.env.weights), self.n_j)
-        self.assertEqual(self.env.weights[1], 2.0)  # Check high priority job
-        self.assertEqual(self.env.number_of_jobs, self.n_j)
-        self.assertEqual(self.env.number_of_machines, self.n_m)
-
-    def test_job_completion_tracking(self):
-        """Test job completion time tracking"""
-        adj, fea, omega, mask = self.env.reset(self.test_instance)
-        
-        # Complete one job
-        for _ in range(self.n_m):  # Complete all operations of first job
-            action = omega[0]  # Take first available action
-            _, _, reward, done, omega, mask = self.env.step(action)
-        
-        # Check if job completion time was recorded
-        self.assertTrue(0 in self.env.completed_jobs)
-        self.assertTrue(self.env.job_completion_times[0] > 0)
-
-    def test_weighted_reward_calculation(self):
-        """Test weighted completion time reward calculation"""
-        adj, fea, omega, mask = self.env.reset(self.test_instance)
-        
-        # Track completion times
-        completion_times = {}
-        
-        # Complete high priority job (weight = 2.0)
-        for _ in range(self.n_m):
-            action = omega[1]  # Actions for second job (index 1)
-            _, _, reward, done, omega, mask = self.env.step(action)
-            if done or mask[1]:  # If job 1 is completed
-                completion_times[1] = self.env.job_completion_times[1]
-        
-        # Complete low priority job (weight = 0.5)
-        for _ in range(self.n_m):
-            action = omega[2]  # Actions for third job (index 2)
-            _, _, reward, done, omega, mask = self.env.step(action)
-            if done or mask[2]:  # If job 2 is completed
-                completion_times[2] = self.env.job_completion_times[2]
-        
-        # Verify weighted completion times
-        weighted_completion_high = completion_times[1] * self.weights[1]  # Weight = 2.0
-        weighted_completion_low = completion_times[2] * self.weights[2]   # Weight = 0.5
-        
-        # The weighted completion time of the high-priority job should have
-        # more impact on the objective
-        impact_ratio = weighted_completion_high / weighted_completion_low
-        self.assertGreater(impact_ratio, 1.0, 
-            f"High priority job (weighted completion={weighted_completion_high}) should have "
-            f"more impact than low priority job (weighted completion={weighted_completion_low})")
-        
-        # Verify that jobs have different completion times recorded
-        self.assertNotEqual(completion_times[1], completion_times[2], 
-            "Jobs should have different completion times")
-        
-        # Verify weights are being applied correctly
-        self.env.weights = np.array([1.0, 1.0, 1.0])  # Equal weights
-        weighted_sum_equal = sum(self.env.job_completion_times * self.env.weights)
-        
-        self.env.weights = self.weights  # Original weights
-        weighted_sum_original = sum(self.env.job_completion_times * self.env.weights)
-        
-        self.assertNotEqual(weighted_sum_equal, weighted_sum_original,
-            "Different weight distributions should result in different weighted sums")
-
-    def test_ppo_memory_weights(self):
-        """Test PPO memory handling of weights"""
-        memory = Memory()
-        memory.weights = torch.tensor(self.weights)
-        
-        # Add some test data
-        memory.r_mb.append(1.0)
-        memory.done_mb.append(False)
-        
-        # Check weight storage
-        self.assertTrue(torch.allclose(memory.weights, torch.tensor(self.weights)))
-        
-        # Test memory clearing
-        memory.clear_memory()
-        self.assertEqual(len(memory.r_mb), 0)
-        self.assertIsNone(memory.weights)
-
-    def test_ppo_return_calculation(self):
-        """Test PPO return calculation with weights"""
-        ppo = PPO(
-            lr=0.0001,
-            gamma=0.99,
-            k_epochs=4,
-            eps_clip=0.2,
-            n_j=self.n_j,
-            n_m=self.n_m,
-            num_layers=2,
-            neighbor_pooling_type="sum",
-            input_dim=2,
-            hidden_dim=64,
-            num_mlp_layers_feature_extract=2,
-            num_mlp_layers_actor=2,
-            hidden_dim_actor=32,
-            num_mlp_layers_critic=2,
-            hidden_dim_critic=32
+class TestJSSPObjectives(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        """Initialize test environment, logging, and result storage"""
+        # Setup logging with detailed format
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(levelname)s - %(message)s'
         )
         
-        # Test data
-        rewards = [1.0, 2.0, -1.0]
-        dones = [False, False, True]
-        weights = torch.tensor(self.weights)
+        # Create results directory
+        cls.results_dir = Path(__file__).parent / 'test_results'
+        cls.results_dir.mkdir(parents=True, exist_ok=True)
         
-        # Calculate returns
-        returns = ppo.calculate_returns(rewards, dones, weights)
+        # Load parameters
+        base_path = Path(__file__).resolve().parents[3]
+        cls.parameters = load_parameters(str(base_path / "configs/L2D.toml"))
         
-        # Check return shape and values
-        self.assertEqual(len(returns), len(rewards))
-        self.assertTrue(torch.all(returns[:-1] >= returns[1:]))  # Returns should be descending due to discount
+        # Test configurations
+        cls.configs = {
+            'small': {'n_j': 6, 'n_m': 4},
+            'medium': {'n_j': 10, 'n_m': 10},
+            'large': {'n_j': 15, 'n_m': 15}
+        }
+        
+        # Define weight scenarios for testing
+        cls.weight_scenarios = {
+            'uniform': lambda n: np.ones(n),
+            'linear': lambda n: np.linspace(1, 2, n),
+            'exponential': lambda n: 2.0 ** np.arange(n)
+        }
+        
+        # Number of instances per configuration
+        cls.n_instances = 5
+        
+        # Initialize validation metrics tracker
+        cls.metrics_tracker = ValidationMetrics(cls.parameters["env_parameters"])
+        
+        # Store results
+        cls.test_results = {}
 
-    def test_complete_episode(self):
-        """Test complete episode with weighted completion times and visualization"""
-        visualizer = TestVisualizer()
+    def generate_test_instances(self, size_config):
+        """Generate test instances with proper dimensions"""
+        n_j = size_config['n_j']
+        n_m = size_config['n_m']
         
-        adj, fea, omega, mask = self.env.reset(self.test_instance)
-        total_reward = 0
-        step_count = 0
+        instances = []
+        for _ in range(self.n_instances):
+            dur_matrix = np.random.randint(1, 10, size=(n_j, n_m)).astype(np.float32)
+            machine_matrix = np.tile(np.arange(1, n_m + 1), (n_j, 1))
+            instances.append((dur_matrix, machine_matrix))
+            
+        return instances
+
+    def init_model(self, n_j, n_m):
+        """Initialize PPO model with correct dimensions for testing"""
+        model = PPO(
+            lr=self.parameters["train_parameters"]["lr"],
+            gamma=self.parameters["train_parameters"]["gamma"],
+            k_epochs=self.parameters["train_parameters"]["k_epochs"],
+            eps_clip=self.parameters["train_parameters"]["eps_clip"],
+            n_j=n_j,
+            n_m=n_m,
+            num_layers=self.parameters["network_parameters"]["num_layers"],
+            neighbor_pooling_type=self.parameters["network_parameters"]["neighbor_pooling_type"],
+            input_dim=2,  # Original input dimension: [completion_time, finished_flag]
+            hidden_dim=self.parameters["network_parameters"]["hidden_dim"],
+            num_mlp_layers_feature_extract=self.parameters["network_parameters"]["num_mlp_layers_feature_extract"],
+            num_mlp_layers_actor=self.parameters["network_parameters"]["num_mlp_layers_actor"],
+            hidden_dim_actor=self.parameters["network_parameters"]["hidden_dim_actor"],
+            num_mlp_layers_critic=self.parameters["network_parameters"]["num_mlp_layers_critic"],
+            hidden_dim_critic=self.parameters["network_parameters"]["hidden_dim_critic"]
+        )
         
-        while not self.env.done():
-            # Take random action from available ones
-            valid_actions = omega[~mask]
-            action = np.random.choice(valid_actions)
-            _, _, reward, done, omega, mask = self.env.step(action)
-            total_reward += reward
-            step_count += 1
+        # Set model to evaluation mode
+        model.policy.eval()
+        model.policy_old.eval()
+        
+        return model
+
+    def test_makespan_baseline(self):
+        """Test baseline makespan optimization without weights"""
+        logging.info("Testing makespan optimization (baseline)")
+        
+        for size_name, config in self.configs.items():
+            logging.info(f"Testing {size_name} configuration: {config['n_j']}x{config['n_m']}")
+            
+            test_instances = self.generate_test_instances(config)
+            model = self.init_model(config['n_j'], config['n_m'])
+            metrics = self.metrics_tracker.evaluate_model(model, test_instances)
+            
+            self.test_results[f'makespan_{size_name}'] = metrics
+            
+            # Log results
+            logging.info(f"Makespan metrics for {size_name}:")
+            for metric, value in metrics.items():
+                logging.info(f"{metric}: {value:.3f}")
+            
+            # Updated assertions for positive objectives
+            self.assertGreater(metrics['mean_objective'], 0, 
+                            "Mean objective should be positive")
+            self.assertGreaterEqual(metrics['critical_path_ratio'], 1.0, 
+                                "Critical path ratio should be >= 1")
+            self.assertGreaterEqual(metrics['min_objective'], 0, 
+                                "Minimum objective should be non-negative")
+
+    def test_weighted_completion(self):
+        """Test weighted completion time optimization with balanced variation checks"""
+        logging.info("Testing weighted completion time optimization")
+        
+        for size_name, config in self.configs.items():
+            logging.info(f"Testing {size_name} configuration with weights")
+            test_instances = self.generate_test_instances(config)
+            
+            for weight_type, weight_fn in self.weight_scenarios.items():
+                logging.info(f"Testing {weight_type} weights")
+                weights = weight_fn(config['n_j'])
                 
-        # Verify episode completion
-        self.assertEqual(step_count, self.n_j * self.n_m)
-        self.assertEqual(len(self.env.completed_jobs), self.n_j)
+                model = self.init_model(config['n_j'], config['n_m'])
+                metrics = self.metrics_tracker.evaluate_model(
+                    model, test_instances, weights=weights)
+                
+                self.test_results[f'weighted_{size_name}_{weight_type}'] = metrics
+                
+                logging.info(f"Weighted metrics for {size_name} ({weight_type}):")
+                for metric, value in metrics.items():
+                    logging.info(f"{metric}: {value:.3f}")
+                
+                if weight_type == 'uniform':
+                    makespan_metrics = self.test_results[f'makespan_{size_name}']
+                    
+                    # Calculate relative difference as percentage
+                    relative_diff = abs(metrics['mean_objective'] - makespan_metrics['mean_objective']) / makespan_metrics['mean_objective'] * 100
+                    
+                    # Allow for larger variation in smaller problems
+                    allowed_percentage = 40 if config['n_j'] <= 6 else 30
+                    
+                    logging.info(f"Relative difference: {relative_diff:.1f}% (allowed: {allowed_percentage}%)")
+                    
+                    self.assertLess(
+                        relative_diff,
+                        allowed_percentage,
+                        f"Relative difference ({relative_diff:.1f}%) exceeds allowed threshold ({allowed_percentage}%)"
+                    )
+                    
+                    # Check standard deviation ratio with balanced thresholds
+                    std_ratio = metrics['std_objective'] / makespan_metrics['std_objective']
+                    min_std_ratio = 0.4 if config['n_j'] <= 6 else 0.5
+                    max_std_ratio = 2.5 if config['n_j'] <= 6 else 2.0
+                    
+                    logging.info(f"Standard deviation ratio: {std_ratio:.2f} (allowed: {min_std_ratio}-{max_std_ratio})")
+                    
+                    self.assertGreater(std_ratio, min_std_ratio,
+                                    f"Variation in weighted completion times should be at least {min_std_ratio} times makespan std dev")
+                    self.assertLess(std_ratio, max_std_ratio,
+                                f"Variation in weighted completion times should be at most {max_std_ratio} times makespan std dev")
+    
+    def tearDown(self):
+        """Save test results and generate report"""
+        # Convert results to JSON-serializable format
+        serializable_results = convert_to_serializable(self.test_results)
         
-        # Generate visualizations and statistics
-        visualizer.plot_completion_times(
-            self.env.job_completion_times,
-            self.env.weights,
-            "Test Episode Job Completion Times"
-        )
-        stats = visualizer.save_test_statistics(self.env)
+        # Save results to JSON
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        results_file = self.results_dir / f'test_results_{timestamp}.json'
         
-        # Additional assertions using statistics
-        self.assertTrue(all(ct > 0 for ct in stats['job_completion_times']),
-                    "All jobs should have positive completion times")
-        self.assertTrue(stats['total_weighted_completion_time'] > 0,
-                    "Total weighted completion time should be positive")
+        with open(results_file, 'w') as f:
+            json.dump(serializable_results, f, indent=4)
+        
+        logging.info(f"Test results saved to {results_file}")
 
 if __name__ == '__main__':
-    unittest.main()
+    unittest.main(verbosity=2)

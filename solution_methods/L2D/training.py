@@ -14,16 +14,16 @@ from pathlib import Path
 import numpy as np
 import torch
 
+base_path = Path(__file__).resolve().parents[2]
+sys.path.append(str(base_path))
+
 from solution_methods.helper_functions import load_parameters, initialize_device, set_seeds
 from solution_methods.L2D.src.agent_utils import select_action
 from solution_methods.L2D.src.JSSP_Env import SJSSP
 from solution_methods.L2D.src.mb_agg import g_pool_cal
 from solution_methods.L2D.src.PPO_model import PPO, Memory
-from solution_methods.L2D.data.instance_generator import uniform_instance_generator
+from solution_methods.L2D.data.instance_generator import uniform_instance_generator, weighted_instance_generator
 from solution_methods.L2D.src.validation import validate
-
-base_path = Path(__file__).resolve().parents[2]
-sys.path.append(str(base_path))
 
 PARAM_FILE = str(base_path) + "/configs/L2D.toml"
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
@@ -40,10 +40,16 @@ def train_L2D(**parameters):
     # Set up device and seeds
     device = initialize_device(parameters)
     set_seeds(parameters["test_parameters"]["seed"])
+    
+    current_dir = os.getcwd()
+    training_log_dir = os.path.join(current_dir, 'training_log')
+    saved_models_dir = os.path.join(current_dir, 'saved_models')
 
     # Create directories for logging and saving models
-    os.makedirs('./training_log', exist_ok=True)
-    os.makedirs('./saved_models', exist_ok=True)
+    #os.makedirs('./training_log', exist_ok=True)
+    #os.makedirs('./saved_models', exist_ok=True)
+    os.makedirs(training_log_dir, exist_ok=True)
+    os.makedirs(saved_models_dir, exist_ok=True)
 
     # Configure default tensor type for device
     torch.set_default_device('cuda' if device.type == 'cuda' else 'cpu')
@@ -53,14 +59,35 @@ def train_L2D(**parameters):
     # Initialize multiple job shop scheduling environments for training
     n_job = env_parameters["n_j"]
     n_machine = env_parameters["n_m"]
-    envs = [SJSSP(n_j=n_job, n_m=n_machine) for _ in range(train_parameters["num_envs"])]
+    instance_type = env_parameters["instance_type"]
+    print(f"Training on {n_job} jobs and {n_machine} machines with instance type: {instance_type}")
+    envs = []
+    for _ in range(train_parameters["num_envs"]):
+        env = SJSSP(n_j=n_job, n_m=n_machine)
+        envs.append(env)
+    # BEFORE: envs = [SJSSP(n_j=n_job, n_m=n_machine) for _ in range(train_parameters["num_envs"])]
 
     # Load validation data
-    data_generator = uniform_instance_generator
+    # BEFORE: data_generator = uniform_instance_generator
+    data_generator = weighted_instance_generator if instance_type != "unweighted" else uniform_instance_generator
     file_path = str(base_path) + '/solution_methods/L2D/data/'
-    dataLoaded = np.load(f"{file_path}generatedData{n_job}_{n_machine}_Seed{env_parameters['np_seed_validation']}.npy")
-    vali_data = [(dataLoaded[i][0], dataLoaded[i][1]) for i in range(dataLoaded.shape[0])]
-
+    # Construct appropriate filename based on instance type
+    if instance_type == "unweighted":
+        filename = f"generatedData{n_job}_{n_machine}_Seed{env_parameters['np_seed_validation']}.npy"
+    else:
+        filename = f"generatedData{n_job}_{n_machine}_{instance_type}_Seed{env_parameters['np_seed_validation']}.npy"
+    # BEFORE: dataLoaded = np.load(f"{file_path}generatedData{n_job}_{n_machine}_Seed{env_parameters['np_seed_validation']}.npy")
+    dataLoaded = np.load(f"{file_path}{filename}")
+    # BEFORE: vali_data = [(dataLoaded[i][0], dataLoaded[i][1]) for i in range(dataLoaded.shape[0])]
+    # Handle validation data based on instance type
+    if instance_type == "unweighted":
+        vali_data = [(dataLoaded[i][0], dataLoaded[i][1]) 
+                     for i in range(dataLoaded.shape[0])]
+    else:
+        # Include weights for weighted instances
+        vali_data = [(dataLoaded[i][0], dataLoaded[i][1], dataLoaded[i][2]) 
+                     for i in range(dataLoaded.shape[0])]
+        
     # Initialize memories for each environment instance
     memories = [Memory() for _ in range(train_parameters["num_envs"])]
 
@@ -98,10 +125,17 @@ def train_L2D(**parameters):
         adj_envs, fea_envs, candidate_envs, mask_envs = [], [], [], []
 
         for i, env in enumerate(envs):
-            adj, fea, candidate, mask = env.reset(data_generator(n_j=n_job,
+            if instance_type == "unweighted":
+                 adj, fea, candidate, mask = env.reset(data_generator(n_j=n_job,
                                                                  n_m=n_machine,
                                                                  low=env_parameters['low'],
                                                                  high=env_parameters["high"]))
+            else:
+                times, machines, weights = data_generator(n_j=n_job, n_m=n_machine, low=env_parameters['low'], high=env_parameters["high"], weight_type=instance_type)
+                #env.weights = weights  # Set weights for the environment
+                adj, fea, candidate, mask = env.reset((times, machines, weights))
+                memories[i].weights = weights  # Store weights in memory
+                
             adj_envs.append(adj)
             fea_envs.append(fea)
             candidate_envs.append(candidate)
@@ -111,7 +145,7 @@ def train_L2D(**parameters):
         # Rollout: interact with envs until all environments are done
         while True:
             # Convert environment states to tensors
-            fea_tensor_envs = [torch.from_numpy(np.copy(fea)).to(device) for fea in fea_envs]
+            fea_tensor_envs = [torch.from_numpy(np.copy(fea)).to(device).float() for fea in fea_envs]
             adj_tensor_envs = [torch.from_numpy(np.copy(adj)).to(device).to_sparse() for adj in adj_envs]
             candidate_tensor_envs = [torch.from_numpy(np.copy(candidate)).to(device) for candidate in candidate_envs]
             mask_tensor_envs = [torch.from_numpy(np.copy(mask)).to(device) for mask in mask_envs]
@@ -172,20 +206,26 @@ def train_L2D(**parameters):
             validation_result = -validate(vali_data, ppo.policy).mean()
             validation_log.append(validation_result)
 
+            objective_type = 'weighted' if instance_type != "unweighted" else 'standard'
+            
             # Save training log
-            log_file = f'./training_log/log_{n_job}_{n_machine}_{env_parameters["low"]}_{env_parameters["high"]}.txt'
+            # BEFORE: log_file = f'./training_log/log_{n_job}_{n_machine}_{env_parameters["low"]}_{env_parameters["high"]}.txt'
+            log_file = f'./training_log/{objective_type}_log_{n_job}_{n_machine}_{env_parameters["low"]}_{env_parameters["high"]}.txt'
 
             with open(log_file, 'w') as file_writing_obj:
                 file_writing_obj.write(str(log))
 
             # Save validation log
-            validation_file = f'./training_log/vali_{n_job}_{n_machine}_{env_parameters["low"]}_{env_parameters["high"]}.txt'
+            # BEFORE: validation_file = f'./training_log/vali_{n_job}_{n_machine}_{env_parameters["low"]}_{env_parameters["high"]}.txt'
+            validation_file = f'./training_log/{objective_type}_vali_{n_job}_{n_machine}_{env_parameters["low"]}_{env_parameters["high"]}.txt'
             with open(validation_file, 'w') as file_writing_obj1:
                 file_writing_obj1.write(str(validation_log))
 
-            # Save model if current validation result is the best so fa
+            # Save model if current validation result is the best so far
             if validation_result < record:
-                torch.save(ppo.policy.state_dict(), f'./saved_models/{n_job}_{n_machine}_{env_parameters["low"]}_{env_parameters["high"]}.pth')
+                # BEFORE: torch.save(ppo.policy.state_dict(), f'./saved_models/{n_job}_{n_machine}_{env_parameters["low"]}_{env_parameters["high"]}.pth')
+                model_path = f'./saved_models/{objective_type}_{n_job}_{n_machine}_{env_parameters["low"]}_{env_parameters["high"]}.pth'
+                torch.save(ppo.policy.state_dict(), model_path)
                 record = validation_result
 
             logging.info(

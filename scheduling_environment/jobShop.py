@@ -101,6 +101,10 @@ class JobShop:
     def operations(self) -> List[Operation]:
         """Return all the operations."""
         return self._operations
+    
+    def get_last_operations(self) -> List[Operation]:
+        """Return the last operation of each job."""
+        return [job.operations[-1] for job in self._jobs]
 
     @property
     def nr_of_operations(self) -> int:
@@ -154,6 +158,18 @@ class JobShop:
             [operation.scheduled_end_time for machine in self.machines for operation in machine.scheduled_operations])
 
     @property
+    def weighted_completion_time(self) -> float:
+        """Calculate total weighted completion time if applicable."""
+        if not self.is_weighted:
+            return self.makespan
+        total = 0
+        for job in self._jobs:
+            if job.weight is not None:
+                completion_time = max(op.scheduled_end_time for op in job.operations)
+                total += job.weight * completion_time
+        return total
+
+    @property
     def total_workload(self) -> float:
         """Return the total workload (sum of processing times of all scheduled operations)"""
         return sum(
@@ -189,6 +205,16 @@ class JobShop:
             if flow_time > max_flowtime:
                 max_flowtime = flow_time
         return max_flowtime
+    
+    @property
+    def is_weighted(self) -> bool:
+        """Return whether this is a weighted instance."""
+        return any(job.weight is not None for job in self._jobs)
+    
+    @property
+    def weights(self) -> List[float]:
+        """Return a list of weights for all jobs (None if unweighted)."""
+        return [job.weight for job in self._jobs]
 
     def schedule_operation_with_backfilling(self, operation: Operation, machine_id, duration) -> None:
         """Schedule an operation"""

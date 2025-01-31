@@ -1,0 +1,23 @@
+{
+    "makespan_small": {
+        "mean_objective": -164.0,
+        "std_objective": 10.788883167408942,
+        "min_objective": -182.0,
+        "max_objective": -148.0,
+        "makespan_mean": -164.0,
+        "makespan_std": 10.788883167408942,
+        "makespan_min": -182.0,
+        "makespan_max": -148.0,
+        "critical_path_ratio": -6.334908902691511
+    },
+    "weighted_small_uniform": {
+        "mean_objective": -144.2,
+        "std_objective": 14.85126257258958,
+        "min_objective": -167.0,
+        "max_objective": -124.0,
+        "weighted_completion_mean": -144.2,
+        "weighted_completion_std": 14.85126257258958,
+        "weight_completion_correlation": NaN,
+        "priority_satisfaction_rate": 0.0
+    }
+}

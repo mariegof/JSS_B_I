@@ -3,9 +3,10 @@ from scheduling_environment.operation import Operation
 
 
 class Job:
-    def __init__(self, job_id: int):
+    def __init__(self, job_id: int, weight: float = None):
         self._job_id: int = job_id
         self._operations: List[Operation] = []
+        self._weight: float = weight  # Optional weight parameter
 
     def add_operation(self, operation: Operation):
         """Add an operation to the job."""
@@ -20,6 +21,11 @@ class Job:
     def operations(self) -> List[Operation]:
         """Return the list of operations."""
         return self._operations
+    
+    @property
+    def weight(self) -> float:
+        """Return the job's weight (None if unweighted)."""
+        return self._weight
 
     @property
     def job_id(self) -> int:

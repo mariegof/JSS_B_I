@@ -1,0 +1,10 @@
+{
+    "instance": "/wjsp/wjssp_6x6_differentiated_0.txt",
+    "objective": 6941.0,
+    "objective_type": "makespan",
+    "trained_policy": "/saved_models/weighted_6_6_1_100.pth",
+    "sample": false,
+    "seed": 2024,
+    "makespan": 1284,
+    "max_flowtime": 388
+}

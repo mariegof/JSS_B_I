@@ -1,3 +1,8 @@
+"""
+getActionNbghs(action, opIDsOnMchs) will return the predecessor and successor of the given action in the opIDsOnMchs matrix.
+Input: action, opIDsOnMchs
+Output: precd, succd
+"""
 import numpy as np
 
 
