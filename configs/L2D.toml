@@ -2,7 +2,7 @@
 seed = 2024                         # Set random seed for result replication
 device = "cpu"                      # Device for test ("cpu" or "cuda")
 problem_instance = "/wjsp/wjssp_6x6_differentiated_0.txt" # instance to test (in testing mode)
-trained_policy = "/saved_models/weighted_6_6_1_100.pth" # Load pretrained policy
+trained_policy = "/saved_models/6_6_1_99.pth" # Load pretrained policy
 sample = false                      # sample from policy if true, else use argmax (greedy)
 show_precedences = true             # draw precedence relations graph of the problem instance
 show_gantt = true                   # draw ganttchart of found solution
@@ -49,7 +49,7 @@ instance_type = "differentiated"        # Options: "unweighted", "uniform", "dif
 num_layers = 3                      # No. of layers of feature extraction GNN including input layer
 neighbor_pooling_type = "sum"       # neighbour pooling type
 graph_pool_type = "average"         # graph pooling type
-input_dim = 3                       # number of dimension of raw node features 2 if unweighted, 3 if weighted
+input_dim = 2                       # number of dimension of raw node features 2 if unweighted, 3 if weighted
 hidden_dim = 64                     # hidden dim of MLP in fea extract GNN
 num_mlp_layers_feature_extract = 2  # No. of layers of MLP in fea extract GNN
 num_mlp_layers_actor = 2            # No. of layers in actor MLP

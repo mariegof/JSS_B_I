@@ -1,0 +1,31 @@
+{
+  "metadata": {
+    "instance_type": "unweighted",
+    "n_instances": 5,
+    "timestamp": "2025-02-05T15:35:28.469607",
+    "parameters": {
+      "n_j": 6,
+      "n_m": 6,
+      "low": 1,
+      "high": 99,
+      "instance_type": "unweighted",
+      "seed": 2024,
+      "device": "cpu",
+      "n_instances": 5
+    }
+  },
+  "methods": {
+    "L2D": {
+      "objectives": [],
+      "runtimes": []
+    },
+    "SPT": {
+      "objectives": [
+        548
+      ],
+      "runtimes": [
+        1.875542
+      ]
+    }
+  }
+}

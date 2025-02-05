@@ -1,0 +1,51 @@
+{
+  "metadata": {
+    "instance_type": "unweighted",
+    "n_instances": 5,
+    "timestamp": "2025-02-05T16:03:58.457727",
+    "parameters": {
+      "n_j": 15,
+      "n_m": 15,
+      "low": 1,
+      "high": 99,
+      "instance_type": "unweighted",
+      "seed": 2024,
+      "device": "cpu",
+      "n_instances": 5
+    }
+  },
+  "methods": {
+    "L2D": {
+      "objectives": [
+        2219.0,
+        2053.0,
+        2331.0,
+        2309.0,
+        1926.0
+      ],
+      "runtimes": [
+        3.221165,
+        2.862476,
+        2.897471,
+        2.896,
+        3.1565
+      ]
+    },
+    "SPT": {
+      "objectives": [
+        1579,
+        1624,
+        1435,
+        1597,
+        1369
+      ],
+      "runtimes": [
+        3.416111,
+        3.384914,
+        3.217758,
+        3.411952,
+        3.208724
+      ]
+    }
+  }
+}
