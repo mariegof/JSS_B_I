@@ -11,6 +11,14 @@ def spt_priority(operation):
     return min(operation.processing_times.values())
 
 
+def wspt_priority(simulationEnv, operation):
+    """WSPT Rule: Remaining Processing Time / Weight - lower values have higher priority.
+    This considers total remaining work divided by weight."""
+    weight = operation.job.weight if operation.job.weight is not None else 1.0
+    remaining_time = get_work_remaining(simulationEnv, operation)
+    return remaining_time / weight
+
+
 def mor_priority(simulationEnv, operation):
     """ MOR Rule: Most Operations Remaining """
     return get_operations_remaining(simulationEnv, operation)

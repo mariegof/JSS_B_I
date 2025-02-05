@@ -1,0 +1,9 @@
+{
+    "instance": "/exp/instance_0.txt",
+    "objective": 9112.0,
+    "objective_type": "makespan",
+    "dispatching_rule": "SPT",
+    "machine_assignment_rule": "SPT",
+    "makespan": 542,
+    "max_flowtime": 542
+}

@@ -19,8 +19,8 @@ def load_parameters(config_toml):
 
 def load_job_shop_env(problem_instance: str, from_absolute_path=False) -> JobShop:
     jobShopEnv = JobShop()
-    if '/fsp/' in problem_instance or '/jsp/' in problem_instance or '/wjsp/' in problem_instance:
-        jobShopEnv = parser_jsp_fsp.parse(jobShopEnv, problem_instance, from_absolute_path)
+    if '/fsp/' in problem_instance or '/jsp/' in problem_instance or '/wjsp/' in problem_instance or '/exp/' in problem_instance:
+        jobShopEnv = parser_jsp_fsp.parse_jsp_fsp(jobShopEnv, problem_instance, from_absolute_path)
     elif '/fjsp/' in problem_instance:
         jobShopEnv = parser_fjsp.parse_fjsp(jobShopEnv, problem_instance, from_absolute_path)
     elif '/fjsp_sdst/' in problem_instance:

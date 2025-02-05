@@ -70,7 +70,7 @@ def run_L2D(jobShopEnv, **parameters):
 
     # Load trained policy
     trained_policy = os.path.dirname(os.path.abspath(__file__)) + parameters['test_parameters'].get('trained_policy')
-    ppo.policy.load_state_dict(torch.load(trained_policy, map_location=torch.device(parameters['test_parameters']['device']), weights_only=True))
+    ppo.policy.load_state_dict(torch.load(trained_policy, map_location=torch.device(parameters['test_parameters']['device']), weights_only=True)) # Load policy weights
     logging.info(f"Trained policy loaded from {parameters['test_parameters'].get('trained_policy')}.")
 
     # Initialize graph pooling step

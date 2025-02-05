@@ -1,0 +1,9 @@
+{
+    "instance": "/wjsp/wjssp_6x6_differentiated_0.txt",
+    "objective": 4933.0,
+    "objective_type": "weighted_completion_time",
+    "dispatching_rule": "WSPT",
+    "machine_assignment_rule": "SPT",
+    "makespan": 567,
+    "max_flowtime": 567
+}

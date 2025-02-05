@@ -8,7 +8,7 @@ sys.path.append(str(base_path))
 from solution_methods.helper_functions import load_parameters
 from solution_methods.L2D.data.instance_generator import permute_rows
 
-def weighted_instance_generator(n_j, n_m, low, high, weight_type="uniform"):
+def weighted_instance_gen(n_j, n_m, low, high, seed=None, weight_type="uniform"):
     """
     Generate weighted JSSP instance in text format for parser.
     Returns instance as a formatted string.
@@ -19,6 +19,10 @@ def weighted_instance_generator(n_j, n_m, low, high, weight_type="uniform"):
     machine_id1 duration1 machine_id2 duration2 ... [weight]
     ...
     """
+    # Set random seed for reproducibility
+    if seed is not None:
+        np.random.seed(seed)
+        
     # Generate data
     times = np.random.randint(low=low, high=high, size=(n_j, n_m))
     machines = np.expand_dims(np.arange(n_m), axis=0).repeat(repeats=n_j, axis=0)
@@ -43,6 +47,31 @@ def weighted_instance_generator(n_j, n_m, low, high, weight_type="uniform"):
         job_entries.append(str(int(weights[j])))
         lines.append(" ".join(job_entries))
     
+    return "\n".join(lines)    
+
+def uniform_instance_gen(n_j, n_m, low=1, high=99, seed=None):
+    """
+    Generate an unweighted job shop instance in the same style as the weighted generator.
+    The only difference is that we don't append weights at the end of each line.
+    """
+    if seed is not None:
+        np.random.seed(seed)
+        
+    times = np.random.randint(low, high + 1, size=(n_j, n_m))
+    machines = np.zeros((n_j, n_m), dtype=np.int32)
+    
+    # Randomly assign machines for each job's operations
+    for i in range(n_j):
+        machines[i] = np.random.permutation(n_m)
+        
+    # Generate instance string
+    lines = [f"{n_j} {n_m}"]
+    for i in range(n_j):
+        job_entries = []
+        for j in range(n_m):
+            job_entries.extend([str(int(machines[i,j])), str(int(times[i,j]))])
+        lines.append(" ".join(job_entries))
+        
     return "\n".join(lines)
 
 def generate_benchmark_instances(parameters):
@@ -69,7 +98,7 @@ def generate_benchmark_instances(parameters):
     for weight_type in ["uniform", "differentiated"]:
         for i in range(num_instances):
             # Generate instance text
-            instance = weighted_instance_generator(
+            instance = weighted_instance_gen(
                 n_j=n_j,
                 n_m=n_m,
                 low=low,

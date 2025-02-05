@@ -3,12 +3,12 @@ import datetime
 import json
 from pathlib import Path
 
-DEFAULT_RESULTS_ROOT = os.getcwd() + "/results/L2D"
+DEFAULT_RESULTS_ROOT = os.getcwd() + "/results/L2D" # i.e. /home/runner/work/Job-Shop-Scheduling/Job-Shop-Scheduling/results/L2D
 
 
 def output_dir_exp_name(parameters):
-    """if 'experiment_name' in parameters['test_parameters'] is not None:
-        exp_name = parameters['output']['experiment_name']
+    if 'experiment_name' in parameters['test_parameters'] is not None:
+        exp_name = parameters['test_parameters']['experiment_name']
     else:
         instance_name = parameters['test_parameters']['problem_instance'].replace('/', '_')[1:]
         network = parameters['test_parameters']['trained_policy'].split('/')[-1].split('.')[0]
@@ -20,11 +20,12 @@ def output_dir_exp_name(parameters):
         exp_name = f"{instance_name}_network_{network}_{type}_{timestamp}"
 
     if 'folder_name' in parameters['test_parameters'] is not None:
-        output_dir = parameters['output']['folder_name']
+        output_dir = parameters['test_parameters']['folder_name']
     else:
         output_dir = DEFAULT_RESULTS_ROOT
     return output_dir, exp_name
-    """
+    
+    '''
     base_dir = Path(DEFAULT_RESULTS_ROOT)
     # Get instance name from the problem instance path
     if parameters.get('method_name'):
@@ -40,6 +41,7 @@ def output_dir_exp_name(parameters):
     method_name = parameters.get('method_name', 'L2D')
     
     return str(output_dir), instance_name
+    '''
 
 def results_saving(objective, path, parameters, **kwargs):
     """

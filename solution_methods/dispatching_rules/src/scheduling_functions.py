@@ -35,6 +35,8 @@ def select_operation(simulationEnv, machine, dispatching_rule, machine_assignmen
                             operation_priorities[operation] = fifo_priority(operation)
                         elif dispatching_rule == 'SPT':
                             operation_priorities[operation] = spt_priority(operation)
+                        elif dispatching_rule == 'WSPT':
+                            operation_priorities[operation] = wspt_priority(simulationEnv, operation)
                         elif dispatching_rule == 'MOR':
                             operation_priorities[operation] = mor_priority(simulationEnv, operation)
                         elif dispatching_rule == 'MWR':
@@ -49,6 +51,8 @@ def select_operation(simulationEnv, machine, dispatching_rule, machine_assignmen
                     elif machine_assignment_rule == 'EET' and eet_rule(simulationEnv, operation, machine.machine_id):
                         if dispatching_rule == 'FIFO':
                             operation_priorities[operation] = fifo_priority(operation)
+                        elif dispatching_rule == 'WSPT':
+                            operation_priorities[operation] = wspt_priority(simulationEnv, operation)
                         elif dispatching_rule == 'MOR':
                             operation_priorities[operation] = mor_priority(simulationEnv, operation)
                         elif dispatching_rule == 'MWR':
@@ -61,7 +65,8 @@ def select_operation(simulationEnv, machine, dispatching_rule, machine_assignmen
     if not operation_priorities:
         return None
     else:
-        if dispatching_rule in ['FIFO', 'SPT', 'LOR', 'LWR']:
+        # BEFORE: if dispatching_rule in ['FIFO', 'SPT', 'LOR', 'LWR']:
+        if dispatching_rule in ['FIFO', 'SPT', 'WSPT', 'LOR', 'LWR']:
             return min(operation_priorities, key=operation_priorities.get)
         else:
             return max(operation_priorities, key=operation_priorities.get)

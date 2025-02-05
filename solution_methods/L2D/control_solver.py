@@ -10,7 +10,7 @@ sys.path.append(str(base_path))
 from solution_methods.helper_functions import (
     load_parameters, load_job_shop_env, initialize_device, set_seeds
 )
-from plotting.drawer import draw_gantt_chart
+from plotting.drawer import draw_gantt_chart, draw_precedence_relations
 from utils import output_dir_exp_name, results_saving
 
 # Use base_path to create absolute path to config file

@@ -1,6 +1,11 @@
 import argparse
 import logging
 import os
+from pathlib import Path
+import sys
+
+base_path = Path(__file__).resolve().parents[2]
+sys.path.append(str(base_path))
 
 from scheduling_environment.jobShop import JobShop
 from plotting.drawer import plot_gantt_chart, draw_precedence_relations
@@ -9,7 +14,7 @@ from solution_methods.helper_functions import load_parameters, load_job_shop_env
 from solution_methods.dispatching_rules.src.scheduling_functions import scheduler
 
 logging.basicConfig(level=logging.INFO)
-PARAM_FILE = "../../configs/dispatching_rules.toml"
+PARAM_FILE = str(base_path / "configs" / "dispatching_rules.toml")
 
 
 def run_dispatching_rules(jobShopEnv, **kwargs):
@@ -29,11 +34,23 @@ def run_dispatching_rules(jobShopEnv, **kwargs):
     # For static instances, run until all operations are scheduled
     else:
         simulationEnv.simulator.run()
+        
+    # Calculate objective based on instance type
+    if jobShopEnv.is_weighted:
+        raw_objective = simulationEnv.jobShopEnv.weighted_completion_time
+        total_weight = sum(job.weight for job in jobShopEnv.jobs)
+        objective = raw_objective / total_weight  # Normalize to match L2D
+        logging.info(f"Normalized Weighted Sum Objective: {objective}")
+    else:
+        # Use makespan for unweighted instances
+        objective = simulationEnv.jobShopEnv.makespan
+        logging.info(f"Makespan: {objective}")
 
-    makespan = simulationEnv.jobShopEnv.makespan
-    logging.info(f"Makespan: {makespan}")
+    # BEFORE: makespan = simulationEnv.jobShopEnv.makespan
+    # logging.info(f"Makespan: {makespan}")
 
-    return makespan, simulationEnv.jobShopEnv
+    # return makespan, simulationEnv.jobShopEnv
+    return objective, simulationEnv.jobShopEnv
 
 
 def main(param_file: str = PARAM_FILE):
@@ -46,13 +63,16 @@ def main(param_file: str = PARAM_FILE):
     # Configure the simulation environment
     if parameters['instance']['online_arrivals']:
         jobShopEnv = JobShop()
-        makespan, jobShopEnv = run_dispatching_rules(jobShopEnv, **parameters)
-        logging.warning(f"Makespan objective is irrelevant for problems configured with 'online arrivals'.")
+        # BEFORE: makespan, jobShopEnv = run_dispatching_rules(jobShopEnv, **parameters)
+        objective, jobShopEnv = run_dispatching_rules(jobShopEnv, **parameters)
+        logging.warning(f"Makespan/Weighted Sum objective is irrelevant for problems configured with 'online arrivals'.")
     else:
         jobShopEnv = load_job_shop_env(parameters['instance'].get('problem_instance'))
-        makespan, jobShopEnv = run_dispatching_rules(jobShopEnv, **parameters)
+        # BEFORE: makespan, jobShopEnv = run_dispatching_rules(jobShopEnv, **parameters)
+        objective, jobShopEnv = run_dispatching_rules(jobShopEnv, **parameters)
 
-    if makespan is not None:
+    # BEFORE: if makespan is not None:
+    if objective is not None:
         # Check output configuration and prepare output paths if needed
         output_config = parameters['output']
         save_gantt = output_config.get('save_gantt')
@@ -75,7 +95,8 @@ def main(param_file: str = PARAM_FILE):
             plt = plot_gantt_chart(jobShopEnv)
 
             if save_gantt:
-                plt.savefig(output_dir + "/gantt.png")
+                # BEFORE: plt.savefig(output_dir + "/gantt.png")
+                plt.savefig(os.path.join(output_dir, "gantt.png"))
                 logging.info(f"Gantt chart saved to {output_dir}")
 
             if show_gantt:
@@ -83,7 +104,14 @@ def main(param_file: str = PARAM_FILE):
 
         # Save results if enabled
         if save_results:
-            results_saving(makespan, output_dir, parameters)
+            # BEFORE: results_saving(makespan, output_dir, parameters)
+            results_saving(
+                objective=objective,
+                path=output_dir,
+                parameters=parameters,
+                makespan=jobShopEnv.makespan,
+                max_flowtime=jobShopEnv.max_flowtime,
+            )
             logging.info(f"Results saved to {output_dir}")
 
 

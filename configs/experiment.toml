@@ -1,0 +1,29 @@
+[global_parameters]
+n_j = 6                           # Number of jobs
+n_m = 6                           # Number of machines
+low = 1                            # Minimum processing time
+high = 99                          # Maximum processing time
+instance_type = "differentiated"   # Options: "unweighted", "uniform", "differentiated"
+seed = 2024                        # Random seed for reproducibility
+device = "cpu"                     # Device for execution
+n_instances = 5                    # Number of instances to generate
+
+[output_parameters]
+save_results = true
+save_gantt = false
+show_gantt = false
+show_precedences = false             
+base_dir = "./results/performance_analysis"
+experiment_name = "experiment_1"
+folder_name = "./results/experiment"      
+
+# Parameters specific to L2D configuration
+[l2d_specific]
+trained_policy = "/saved_models/weighted_6_6_1_100.pth"
+sample = false
+is_weighted = true
+
+# Parameters specific to dispatching rules configuration
+[dispatching_specific]
+logbook = false
+machine_assignment_rule = "SPT"    # For SPT dispatching rule
