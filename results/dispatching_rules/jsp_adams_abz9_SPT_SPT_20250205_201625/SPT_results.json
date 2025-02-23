@@ -1,0 +1,6 @@
+{
+    "instance": "/jsp/adams/abz9",
+    "makespan": 887,
+    "dispatching_rule": "SPT",
+    "machine_assignment_rule": "SPT"
+}

@@ -3,9 +3,10 @@ from scheduling_environment.operation import Operation
 
 
 class Job:
-    def __init__(self, job_id: int):
+    def __init__(self, job_id: int, weight: int = None):
         self._job_id: int = job_id
         self._operations: List[Operation] = []
+        self._weight: int = weight  # Optional weight parameter
 
     def __repr__(self):
         return (
@@ -30,6 +31,11 @@ class Job:
     def job_id(self) -> int:
         """Return the job's id."""
         return self._job_id
+    
+    @property
+    def weight(self) -> int:
+        """Return the job's weight (None if unweighted)."""
+        return self._weight
 
     @property
     def scheduled_operations(self) -> List[Operation]:

@@ -1,0 +1,7 @@
+{
+    "instance": "/jsp/adams/abz9",
+    "makespan": 837.0,
+    "trained_policy": "/saved_models/20_15_1_199.pth",
+    "sample": false,
+    "seed": 2024
+}

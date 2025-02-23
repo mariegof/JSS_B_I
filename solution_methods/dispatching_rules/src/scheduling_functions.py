@@ -31,7 +31,11 @@ def select_operation(simulationEnv, machine, dispatching_rule, machine_assignmen
                     # Check if the machine assignment rule is 'SPT' and the operation has the shortest processing time
                     # on the machine
                     if machine_assignment_rule == 'SPT' and spt_rule(operation, machine.machine_id):
-                        if dispatching_rule == 'FIFO':
+                        if dispatching_rule == 'SRPT':
+                            operation_priorities[operation] = srpt_priority(simulationEnv, operation)
+                        elif dispatching_rule == 'WSRPT':
+                            operation_priorities[operation] = wsrpt_priority(simulationEnv, operation)
+                        elif dispatching_rule == 'FIFO':
                             operation_priorities[operation] = fifo_priority(operation)
                         elif dispatching_rule == 'SPT':
                             operation_priorities[operation] = spt_priority(operation)
@@ -61,7 +65,7 @@ def select_operation(simulationEnv, machine, dispatching_rule, machine_assignmen
     if not operation_priorities:
         return None
     else:
-        if dispatching_rule in ['FIFO', 'SPT', 'LOR', 'LWR']:
+        if dispatching_rule in ['FIFO', 'SPT', 'LOR', 'LWR', 'SRPT', 'WSRPT']:
             return min(operation_priorities, key=operation_priorities.get)
         else:
             return max(operation_priorities, key=operation_priorities.get)

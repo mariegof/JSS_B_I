@@ -1,0 +1,161 @@
+{
+  "metadata": {
+    "instance_type": "differentiated",
+    "n_instances": 5,
+    "timestamp": "2025-02-18T14:20:17.008612",
+    "parameters": {
+      "n_j": 6,
+      "n_m": 6,
+      "low": 1,
+      "high": 100,
+      "instance_type": "differentiated",
+      "seed": 2024,
+      "device": "cpu",
+      "n_instances": 5
+    }
+  },
+  "methods": {
+    "L2D": {
+      "objectives": [
+        28708.0,
+        37003.0,
+        19178.0,
+        32192.0,
+        25285.0
+      ],
+      "runtimes": [
+        2.123818,
+        1.850014,
+        1.806611,
+        1.732561,
+        1.811717
+      ]
+    },
+    "SPT": {
+      "objectives": [
+        15863.0,
+        18918.0,
+        9219.0,
+        14289.0,
+        17056.0
+      ],
+      "runtimes": [
+        1.252593,
+        1.244712,
+        1.283657,
+        1.242411,
+        1.291882
+      ]
+    },
+    "SRPT": {
+      "objectives": [
+        15605.0,
+        17196.0,
+        8452.0,
+        15423.0,
+        16483.0
+      ],
+      "runtimes": [
+        1.239369,
+        1.323276,
+        1.26694,
+        1.242009,
+        1.202241
+      ]
+    },
+    "WSRPT": {
+      "objectives": [
+        15605.0,
+        16814.0,
+        9062.0,
+        14808.0,
+        15318.0
+      ],
+      "runtimes": [
+        1.217199,
+        1.245361,
+        1.229925,
+        1.243495,
+        1.303001
+      ]
+    }
+  },
+  "performance_analysis": {
+    "performance_ratios": [
+      {
+        "L2D": 1.84,
+        "SPT": 1.017,
+        "SRPT": 1.0,
+        "WSRPT": 1.0
+      },
+      {
+        "L2D": 2.201,
+        "SPT": 1.125,
+        "SRPT": 1.023,
+        "WSRPT": 1.0
+      },
+      {
+        "L2D": 2.269,
+        "SPT": 1.091,
+        "SRPT": 1.0,
+        "WSRPT": 1.072
+      },
+      {
+        "L2D": 2.253,
+        "SPT": 1.0,
+        "SRPT": 1.079,
+        "WSRPT": 1.036
+      }
+    ],
+    "summary_statistics": {
+      "L2D": {
+        "objectives": {
+          "mean": 29270.25,
+          "min": 19178.0,
+          "max": 37003.0,
+          "std": 6528.81
+        },
+        "runtimes": {
+          "mean": 1.88,
+          "total": 7.51
+        }
+      },
+      "SPT": {
+        "objectives": {
+          "mean": 14572.25,
+          "min": 9219.0,
+          "max": 18918.0,
+          "std": 3510.31
+        },
+        "runtimes": {
+          "mean": 1.26,
+          "total": 5.02
+        }
+      },
+      "SRPT": {
+        "objectives": {
+          "mean": 14169.0,
+          "min": 8452.0,
+          "max": 17196.0,
+          "std": 3372.0
+        },
+        "runtimes": {
+          "mean": 1.27,
+          "total": 5.07
+        }
+      },
+      "WSRPT": {
+        "objectives": {
+          "mean": 14072.25,
+          "min": 9062.0,
+          "max": 16814.0,
+          "std": 2979.53
+        },
+        "runtimes": {
+          "mean": 1.23,
+          "total": 4.94
+        }
+      }
+    }
+  }
+}

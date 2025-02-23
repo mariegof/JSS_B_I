@@ -1,0 +1,7 @@
+{
+    "instance": "/exp/instance_0.txt",
+    "objective": 3574,
+    "objective_type": "makespan",
+    "dispatching_rule": "SPT",
+    "machine_assignment_rule": "SPT"
+}

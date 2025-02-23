@@ -11,6 +11,11 @@ import logging
 import os
 import numpy as np
 import torch
+import sys
+from pathlib import Path
+
+base_path = Path(__file__).resolve().parents[2]
+sys.path.append(str(base_path))
 
 from visualisation import gantt_chart, precedence_chart
 from solution_methods.helper_functions import load_job_shop_env, load_parameters, initialize_device, set_seeds
@@ -20,7 +25,7 @@ from solution_methods.L2D.src.mb_agg import g_pool_cal
 from solution_methods.L2D.src.PPO_model import PPO
 from utils import output_dir_exp_name, results_saving
 
-PARAM_FILE = "../../configs/L2D.toml"
+PARAM_FILE = str(base_path / "configs" / "L2D.toml")
 logging.basicConfig(level=logging.INFO)
 
 
@@ -34,12 +39,15 @@ def run_L2D(jobShopEnv, **parameters):
     if device.type == 'cuda':
         torch.cuda.set_device(device)
 
+    weights = np.array(jobShopEnv.weights) if jobShopEnv.is_weighted else None
+    
     # Configure test environment
-    env_test = Env_test(n_j=jobShopEnv.nr_of_jobs, n_m=jobShopEnv.nr_of_machines)
-
+    env_test = Env_test(n_j=jobShopEnv.nr_of_jobs, n_m=jobShopEnv.nr_of_machines, weights=weights)
+    
     # Initialize PPO model with network and training parameters
     model_parameters = parameters["network_parameters"]
     train_parameters = parameters["train_parameters"]
+    input_dim = model_parameters["input_dim"] + 1 if jobShopEnv.is_weighted else model_parameters["input_dim"]
     ppo = PPO(lr=train_parameters["lr"],
               gamma=train_parameters["gamma"],
               k_epochs=train_parameters["k_epochs"],
@@ -48,7 +56,7 @@ def run_L2D(jobShopEnv, **parameters):
               n_m=jobShopEnv.nr_of_machines,
               num_layers=model_parameters["num_layers"],
               neighbor_pooling_type=model_parameters["neighbor_pooling_type"],
-              input_dim=model_parameters["input_dim"],
+              input_dim=input_dim,
               hidden_dim=model_parameters["hidden_dim"],
               num_mlp_layers_feature_extract=model_parameters["num_mlp_layers_feature_extract"],
               num_mlp_layers_actor=model_parameters["num_mlp_layers_actor"],
@@ -69,7 +77,7 @@ def run_L2D(jobShopEnv, **parameters):
 
     # Run environment instance
     adj, fea, candidate, mask = env_test.reset(jobShopEnv)
-    ep_reward = - env_test.JSM_max_endTime
+    ep_reward = - env_test.initQuality
 
     while True:
         fea_tensor = torch.from_numpy(np.copy(fea)).to(device)
@@ -96,11 +104,14 @@ def run_L2D(jobShopEnv, **parameters):
 
         if done:
             break
+        
+    objective = float(-ep_reward + env_test.posRewards)
+    if jobShopEnv.is_weighted:
+        logging.info(f"Weighted Sum Objective: {objective}")
+    else:
+        logging.info(f"Makespan: {objective}")
 
-    makespan = float(-ep_reward + env_test.posRewards)
-    logging.info(f"Makespan: {makespan}")
-
-    return makespan, jobShopEnv
+    return objective, jobShopEnv
 
 
 def main(param_file=PARAM_FILE):
@@ -111,9 +122,9 @@ def main(param_file=PARAM_FILE):
         return
 
     jobShopEnv = load_job_shop_env(parameters['test_parameters'].get('problem_instance'))
-    makespan, jobShopEnv = run_L2D(jobShopEnv, **parameters)
+    objective, jobShopEnv = run_L2D(jobShopEnv, **parameters)
 
-    if makespan is not None:
+    if objective is not None:
         # Check output configuration and prepare output paths if needed
         output_config = parameters['test_parameters']
         save_gantt = output_config.get('save_gantt')
@@ -144,7 +155,13 @@ def main(param_file=PARAM_FILE):
 
         # Save results if enabled
         if save_results:
-            results_saving(makespan, output_dir, parameters)
+            results_saving(
+                objective=objective,
+                path=output_dir,
+                parameters=parameters,
+                makespan=jobShopEnv.makespan,
+                max_flowtime=jobShopEnv.max_flowtime,
+            )
             logging.info(f"Results saved to {output_dir}")
 
 

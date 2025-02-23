@@ -31,10 +31,16 @@ def parse_jsp_fsp(JobShop, instance, from_absolute_path=False):
             # Split data with multiple spaces as separator
             parsed_line = re.findall('\\S+', line)
 
+            # Extract weight if present
+            weight = float(parsed_line[-1]) if len(parsed_line) % 2 == 1 else None
+            if weight is not None:
+                parsed_line = parsed_line[:-1] # Remove weight from parsed line
+
+            # Create job with weight
+            job = Job(job_id, weight)
+
             # Current item of the parsed line
             i = 0
-
-            job = Job(job_id)
 
             while i < len(parsed_line):
                 # Current operation

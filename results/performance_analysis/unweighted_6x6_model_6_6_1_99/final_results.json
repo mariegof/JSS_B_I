@@ -1,0 +1,101 @@
+{
+  "metadata": {
+    "instance_type": "unweighted",
+    "n_instances": 5,
+    "timestamp": "2025-02-12T14:33:26.944001",
+    "parameters": {
+      "n_j": 6,
+      "n_m": 6,
+      "low": 1,
+      "high": 99,
+      "instance_type": "unweighted",
+      "seed": 2024,
+      "device": "cpu",
+      "n_instances": 5
+    }
+  },
+  "methods": {
+    "L2D": {
+      "objectives": [
+        572.0,
+        696.0,
+        517.0,
+        577.0,
+        533.0
+      ],
+      "runtimes": [
+        3.514242,
+        2.715929,
+        2.767966,
+        2.691057,
+        2.771365
+      ]
+    },
+    "SPT": {
+      "objectives": [
+        548,
+        663,
+        515,
+        605,
+        544
+      ],
+      "runtimes": [
+        1.838282,
+        1.9294,
+        1.966877,
+        1.90102,
+        1.90757
+      ]
+    }
+  },
+  "performance_analysis": {
+    "performance_ratios": [
+      {
+        "L2D": 1.044,
+        "SPT": 1.0
+      },
+      {
+        "L2D": 1.05,
+        "SPT": 1.0
+      },
+      {
+        "L2D": 1.004,
+        "SPT": 1.0
+      },
+      {
+        "L2D": 1.0,
+        "SPT": 1.049
+      },
+      {
+        "L2D": 1.0,
+        "SPT": 1.021
+      }
+    ],
+    "summary_statistics": {
+      "L2D": {
+        "objectives": {
+          "mean": 579.0,
+          "min": 517.0,
+          "max": 696.0,
+          "std": 62.77
+        },
+        "runtimes": {
+          "mean": 2.89,
+          "total": 14.46
+        }
+      },
+      "SPT": {
+        "objectives": {
+          "mean": 575.0,
+          "min": 515.0,
+          "max": 663.0,
+          "std": 52.79
+        },
+        "runtimes": {
+          "mean": 1.91,
+          "total": 9.54
+        }
+      }
+    }
+  }
+}

@@ -31,6 +31,16 @@ def lwr_priority(simulationEnv, operation):
     return get_work_remaining(simulationEnv, operation)
 
 
+def srpt_priority(simulationEnv, operation):
+    """SRPT Rule: Shortest Remaining Processing Time"""
+    return get_remaining_processing_time(simulationEnv, operation)
+
+
+def wsrpt_priority(simulationEnv, operation):
+    """WSRPT Rule: Weighted Shortest Remaining Processing Time"""
+    return get_weighted_remaining_time(simulationEnv, operation)
+
+
 def spt_rule(operation, machine_id):
     """ SPT Rule: Shortest Processing Time """
     min_processing_time = min(operation.processing_times.values())

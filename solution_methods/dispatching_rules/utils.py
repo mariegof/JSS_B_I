@@ -21,9 +21,13 @@ def configure_simulation_env(jobShopEnv, **parameters):
 
 
 def output_dir_exp_name(parameters):
-    if 'experiment_name' in parameters['output'] is not None:
+    print("inside output_dir_exp_name function")
+    print("experiment_name is not none: ", 'experiment_name' in parameters['output'] is not None)
+    if 'experiment_name' in parameters['output'] and parameters['output']['experiment_name']:
+        print("inside if for experiment_name")
         exp_name = parameters['output']['experiment_name']
     else:
+        print("inside else for experiment_name")
         if parameters['instance']['online_arrivals']:
             instance_name = 'online_arrival_config'
         else:
@@ -33,22 +37,26 @@ def output_dir_exp_name(parameters):
         machine_assignment_rule = parameters['instance']['machine_assignment_rule']
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         exp_name = f"{instance_name}_{dispatching_rule}_{machine_assignment_rule}_{timestamp}"
-
-    if 'folder_name' in parameters['output'] is not None:
+    print("exp_name: ", exp_name)
+    if 'folder_name' in parameters['output'] and parameters['output']['folder_name']:
+        print("inside if for folder_name")
         output_dir = parameters['output']['folder_name']
     else:
+        print("inside else for folder_name")
         output_dir = DEFAULT_RESULTS_ROOT
+    print("output_dir: ", output_dir)
     return output_dir, exp_name
 
 
-def results_saving(makespan, path, parameters):
+def results_saving(objective, path, parameters, **kwargs):
     """
     Save the dispatching rules scheduling results to a JSON file.
     """
     if parameters['instance']['online_arrivals']:
         results = {
             "instance": parameters["instance"]["problem_instance"],
-            "makespan": makespan,
+            "objective": objective,
+            "objective_type": "weighted_completion_time" if parameters["instance"].get("is_weighted", False) else "makespan",
             "dispatching_rule": parameters["instance"]["dispatching_rule"],
             "machine_assignment_rule": parameters["instance"]["machine_assignment_rule"],
             "number_total_machines": parameters["online_arrival_details"]["number_total_machines"],
@@ -63,15 +71,20 @@ def results_saving(makespan, path, parameters):
     else:
         results = {
             "instance": parameters["instance"]["problem_instance"],
-            "makespan": makespan,
+            "objective": objective,
+            "objective_type": "weighted_completion_time" if parameters["instance"].get("is_weighted", False) else "makespan",
             "dispatching_rule": parameters["instance"]["dispatching_rule"],
             "machine_assignment_rule": parameters["instance"]["machine_assignment_rule"]
         }
+        
+    # Add additional metrics from kwargs
+    results.update(kwargs)
 
     # Generate a default experiment name based on instance and solve time if not provided
     os.makedirs(path, exist_ok=True)
 
     # Save results to JSON
-    file_path = os.path.join(path, "GA_results.json")
+    method_name = parameters["instance"]["dispatching_rule"]
+    file_path = os.path.join(path, f"{method_name}_results.json")
     with open(file_path, "w") as outfile:
         json.dump(results, outfile, indent=4)

@@ -40,3 +40,18 @@ def check_precedence_relations(simulationEnv, operation):
         if preceding_operation not in simulationEnv.processed_operations:
             return False
     return True
+
+
+def get_remaining_processing_time(simulationEnv, operation):
+    """Calculate remaining processing time for a job including current operation."""
+    job = operation.job
+    remaining_ops = [op for op in job.operations if op not in simulationEnv.processed_operations]
+    # Sum minimum processing times across remaining operations
+    return sum(min(op.processing_times.values()) for op in remaining_ops)
+
+def get_weighted_remaining_time(simulationEnv, operation):
+    """Calculate remaining processing time divided by job weight."""
+    remaining_time = get_remaining_processing_time(simulationEnv, operation)
+    # Handle unweighted case gracefully
+    weight = operation.job.weight if operation.job.weight is not None else 1.0
+    return remaining_time / weight
